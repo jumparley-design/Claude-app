@@ -205,6 +205,69 @@ td.n{white-space:nowrap;font-variant-numeric:tabular-nums}
 dialog{border:1px solid var(--gold);background:var(--panel);color:var(--ink);padding:22px;width:min(560px,calc(100vw - 24px))}
 dialog::backdrop{background:rgb(0 0 0/.65)}
 svg.art{color:var(--gold)}
+/* asistente de reserva */
+.wiz{position:fixed;inset:0;z-index:60;background:var(--bg);display:grid;grid-template-rows:auto minmax(0,1fr) auto}
+.wz-top{padding:calc(env(safe-area-inset-top,0px) + 14px) max(5vw,16px,env(safe-area-inset-right,0px)) 12px max(5vw,16px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line)}
+.wz-top .w{max-width:760px;margin:0 auto}
+.wz-head{display:flex;align-items:center;gap:12px}
+.wz-head .lbl{color:var(--soft);font-size:14px}
+.wz-x{margin-left:auto;background:none;border:1px solid var(--line);color:var(--ink);width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:20px;line-height:1}
+.wz-x:hover{border-color:var(--gold);color:var(--gold)}
+.prog{height:4px;background:var(--line);margin:12px 0 10px;border-radius:2px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--gold);border-radius:2px;transition:width .45s cubic-bezier(.2,.8,.2,1)}
+.cheer{font:italic 500 19px "Playfair Display",serif;color:var(--gold);margin:0}
+.crumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.crumbs button{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:4px 12px;font:500 13px Jost,sans-serif;cursor:pointer}
+.crumbs button:hover{border-color:var(--gold)}
+.wz-body{overflow-y:auto;overscroll-behavior:contain;padding:24px max(5vw,16px,env(safe-area-inset-right,0px)) 32px max(5vw,16px,env(safe-area-inset-left,0px))}
+.wz-body .w{max-width:760px;margin:0 auto}
+.wz-body h2{font-size:clamp(28px,4.4vw,40px);margin-bottom:18px}
+.fwd{animation:inR .38s cubic-bezier(.2,.8,.2,1)}
+.back{animation:inL .38s cubic-bezier(.2,.8,.2,1)}
+@keyframes inR{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes inL{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.fwd,.back{animation:none}.prog i{transition:none}}
+.opt{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:center;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);color:var(--ink);padding:16px 18px;margin-bottom:10px;cursor:pointer;font:16px Jost,sans-serif;transition:border-color .15s,background .15s,transform .15s}
+.opt:hover{border-color:var(--gold);transform:translateY(-1px)}
+.opt[aria-pressed=true]{border-color:var(--gold);background:var(--goldsoft)}
+.opt b{font:600 19px "Playfair Display",serif}
+.opt small{color:var(--soft);font-size:14px;grid-column:1}
+.opt .pr{grid-row:1/3;grid-column:2;text-align:right;font:600 19px Jost,sans-serif;color:var(--gold);white-space:nowrap}
+.opt .pr span{display:block;font:500 13px Jost,sans-serif;color:var(--soft)}
+.bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,10.5em),1fr));gap:12px}
+.bopt{background:var(--panel);border:1px solid var(--line);color:var(--ink);cursor:pointer;padding:0;text-align:left;font:16px Jost,sans-serif;transition:border-color .15s,transform .15s}
+.bopt:hover{border-color:var(--gold);transform:translateY(-2px)}
+.bopt[aria-pressed=true]{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.bopt .pic{aspect-ratio:1;position:relative;overflow:hidden;background:#100e0b}
+.bopt .pic img,.bopt .pic svg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.bopt .tx{padding:10px 12px 12px}
+.bopt .tx b{display:block;font:600 17px "Playfair Display",serif}
+.bopt .tx small{color:var(--soft);font-size:13px}
+.dstrip{display:grid;grid-auto-flow:column;grid-auto-columns:4.4em;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:18px;scroll-snap-type:x proximity}
+.dstrip .chip{text-align:center;padding:8px 2px;scroll-snap-align:start}
+.dstrip .chip b{display:block;font:600 22px "Playfair Display",serif}
+.dstrip .chip small{font-size:11px}
+.tgroup{margin-bottom:16px}
+.tgroup h4{margin:0 0 8px;font:500 14px Jost,sans-serif;color:var(--soft)}
+.wz-foot{border-top:1px solid var(--line);background:var(--bg2);padding:12px max(5vw,16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(5vw,16px,env(safe-area-inset-left,0px))}
+.wz-foot .w{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.wz-foot .sum{flex:1;min-width:0;font-size:14px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wz-foot .sum b{color:var(--gold);font:600 20px "Playfair Display",serif;margin-right:6px}
+.review{border:1px solid var(--gold);background:var(--panel);padding:22px}
+.review dl{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px 16px;margin:0;align-items:baseline}
+.review dt{color:var(--soft)}.review dd{margin:0}
+.review .ed{background:none;border:0;color:var(--gold);cursor:pointer;font:500 14px Jost,sans-serif;text-decoration:underline}
+.done{text-align:center;padding-top:12px}
+.done .seal svg{width:100%;height:100%}
+.done .seal{width:96px;height:96px;margin:0 auto 18px;animation:pop .6s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.done .seal{animation:none}}
+.done .when{font:600 clamp(24px,4vw,32px) "Playfair Display",serif;color:var(--gold);margin:10px 0}
+.done .row{justify-content:center;margin-top:18px}
+.teaser{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11em),1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-top:32px}
+.teaser div{background:var(--bg2);padding:20px}
+.teaser b{display:block;font:600 34px "Playfair Display",serif;color:var(--gold);line-height:1}
+.teaser span{color:var(--soft);font-size:15px}
 svg.art *{vector-effect:non-scaling-stroke}
 </style>
 
@@ -218,6 +281,7 @@ svg.art *{vector-effect:non-scaling-stroke}
   </nav>
 </div></div>
 <main id="app"></main>
+<div class="wiz" id="wiz" hidden role="dialog" aria-modal="true" aria-label="Reservar cita"></div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <dialog id="dlg"></dialog>
 
@@ -291,7 +355,7 @@ const DEF={shop:'Mi Barbería',slogan:'Tradición, navaja y buen trato',about:''
 let D={cfg:{...DEF},barbers:[],services:[],gallery:[],busy:[],appts:[],clients:[],log:[],bookings:{},mine:[]};
 let store=null,assets=null,me=null,isAdmin=false,canWrite=true,mode='connecting',pending=false;
 const st={view:'site',tab:'agenda',date:today(),barber:'all',edit:null,q:''};
-const bk={service:null,barber:'any',date:null,time:null,slotBarber:null,name:'',phone:'',notes:'',done:null};
+const bk={open:false,step:0,shown:-1,dir:1,service:null,barber:'any',date:null,time:null,slotBarber:null,name:'',phone:'',notes:'',done:null};
 try{const p=JSON.parse(localStorage.getItem('barberia-yo'));if(p){bk.name=p.name||'';bk.phone=p.phone||''}}catch(e){}
 let reminded={};try{reminded=JSON.parse(localStorage.getItem('barberia-avisados'))||{}}catch(e){}
 const remKey=a=>a.id+'|'+a.date+'|'+a.time+'|'+a.remind;
@@ -328,8 +392,8 @@ function ensureClient(a){if(a.clientId||!a.phone)return;const c=D.clients.find(c
 const apptName=a=>a.clientId?byId('clients',a.clientId).name:(a.name||'Cliente');
 const apptPhone=a=>a.clientId?byId('clients',a.clientId).phone:(a.phone||'');
 
-function busyUI(){const a=document.activeElement;return $('#dlg').open||(st.view==='panel'&&st.tab==='nueva')||(a&&a.closest&&a.closest('#app')&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&a.id!=='cSearch')}
-function refresh(){if(busyUI()){pending=true;return}pending=false;render()}
+function busyUI(){const a=document.activeElement;return $('#dlg').open||(st.view==='panel'&&st.tab==='nueva')||(a&&a.closest&&(a.closest('#app')||a.closest('#wiz'))&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&a.id!=='cSearch')}
+function refresh(){if(busyUI()){pending=true;return}pending=false;render();if(bk.open)renderWiz()}
 document.addEventListener('focusout',()=>setTimeout(()=>{if(pending)refresh()},60));
 
 async function boot(){
@@ -434,8 +498,8 @@ function siteHTML(){
   </div></section>
 
   <section class="band" id="reservar"><div class="in">
-    <div class="rule"><span>Reservaciones</span></div><h2>Reserva tu cita</h2><p class="lede">Elige servicio, barbero y horario. Recibirás el resumen para agregarlo a tu calendario.</p>
-    ${bookingHTML()}
+    <div class="row" style="align-items:end;gap:20px"><div><div class="rule"><span>Reservaciones</span></div><h2>Tu cita en menos de un minuto</h2><p class="lede">Cuatro pasos rápidos y queda lista, con recordatorio en tu calendario.</p></div><span class="sp"></span><button class="btn" data-act="wizOpen" style="font-size:17px;padding:14px 28px">Reservar ahora</button></div>
+    <div class="teaser"><div><b>1</b><span>Elige tu servicio</span></div><div><b>2</b><span>Tu barbero favorito o el primero libre</span></div><div><b>3</b><span>Día y hora disponibles</span></div><div><b>4</b><span>Tus datos y listo</span></div></div>
   </div></section>
 
   <section class="band alt" id="mis-citas"><div class="in"><div class="rule"><span>Tus reservas</span></div><h2>Mis citas</h2>${mineHTML()}</div></section>
@@ -443,35 +507,55 @@ function siteHTML(){
 }
 function statusText(){return{connecting:'Conectando…',live:'Datos en vivo',slow:'Sin conexión todavía',error:'Conexión perdida; recarga la página',local:'Modo local (solo este navegador)'}[mode]}
 
-function bookingHTML(){
-  if(bk.done){const a=bk.done,s=byId('services',a.serviceId),b=byId('barbers',a.barberId);const w=waShop(`Hola, reservé ${s.name} con ${b.name} el ${longDate(a.date)} a las ${a.time}. A nombre de ${a.name}.`);
-    return `<div class="ok" style="margin-top:28px"><h3>¡Cita reservada, ${esc(a.name.split(' ')[0])}!</h3><p style="margin:0">${esc(s.name)} con ${esc(b.name)}<br><b style="color:var(--gold)">${esc(cap(longDate(a.date)))} · ${esc(a.time)}</b></p><p class="note" style="margin:0">La barbería la verá en su agenda y te confirmará.</p>
-    <div class="row"><a class="btn" href="${esc(gcal(a))}" target="_blank" rel="noopener">${ICON.cal.replace('<svg','<svg width="18" height="18"')} Google Calendar</a><button class="btn ghost" data-act="ics" data-id="${esc(a.id)}">Apple / Outlook (.ics)</button>${w?`<a class="btn ghost" href="${esc(w)}" target="_blank" rel="noopener">Avisar por WhatsApp</a>`:''}</div>
-    <div><button class="btn ghost sm" data-act="bkNew">Reservar otra cita</button></div></div>`}
-  if(!D.services.length||!D.barbers.length)return '<p class="note" style="margin-top:20px">Las reservas en línea se activan cuando la barbería agregue servicios y barberos.</p>';
-  const sv=D.services.find(s=>s.id===bk.service);const dur=sv?Number(sv.dur):30;
-  const dates=[...Array(14)].map((_,i)=>addDays(today(),i));
-  if(!bk.date)bk.date=dates.find(d=>hoursFor(d))||dates[0];
-  const sl=sv?slots(bk.date,bk.barber,dur):[];
-  const b=bk.barber==='any'?null:D.barbers.find(x=>x.id===bk.barber);
-  const ready=sv&&bk.time&&bk.name.trim()&&digits(bk.phone).length>=8;
-  return `<div class="book">
-  <div>
-    <div class="step"><h3>Servicio</h3><div class="chips">${sortBy(D.services,'order').map(s=>`<button class="chip" data-act="bkSvc" data-id="${esc(s.id)}" aria-pressed="${s.id===bk.service}">${esc(s.name)}<small>${Number(s.dur)} min · ${money(s.price)}</small></button>`).join('')}</div></div>
-    <div class="step"><h3>Barbero</h3><div class="chips"><button class="chip" data-act="bkBarber" data-id="any" aria-pressed="${bk.barber==='any'}">Cualquiera<small>el primero disponible</small></button>${sortBy(D.barbers,'order').map(x=>`<button class="chip" data-act="bkBarber" data-id="${esc(x.id)}" aria-pressed="${x.id===bk.barber}">${esc(x.name)}<small>${esc(x.spec||'Barbero')}</small></button>`).join('')}</div></div>
-    <div class="step"><h3>Fecha <small>próximas dos semanas</small></h3><div class="dates">${dates.map(d=>`<button class="chip" data-act="bkDate" data-d="${d}" aria-pressed="${d===bk.date}" ${hoursFor(d)?'':'disabled'}>${DOW[new Date(d+'T12:00').getDay()]}<b>${+d.slice(8)}</b></button>`).join('')}</div></div>
-    <div class="step"><h3>Hora</h3>${!sv?'<p class="note">Primero elige un servicio.</p>':!hoursFor(bk.date)?'<p class="note">Ese día está cerrado.</p>':sl.length?`<div class="times">${sl.map(x=>`<button class="chip" data-act="bkTime" data-t="${x.t}" data-b="${esc(x.b||'')}" aria-pressed="${x.t===bk.time}" ${x.b?'':'disabled'}>${x.t}</button>`).join('')}</div>${sl.every(x=>!x.b)?'<p class="note">Sin horarios libres este día; prueba otra fecha u otro barbero.</p>':''}`:'<p class="note">No quedan horarios hoy; elige otra fecha.</p>'}</div>
-    <div class="step"><h3>Tus datos</h3><div class="f2"><label>Nombre<input id="bkName" autocomplete="name" value="${esc(bk.name)}"></label><label>Teléfono / WhatsApp<input id="bkPhone" inputmode="tel" autocomplete="tel" value="${esc(bk.phone)}"></label></div>
-      <label style="margin-top:12px">Comentario (opcional)<input id="bkNotes" value="${esc(bk.notes)}" placeholder="Ej. degradado bajo, solo tijera"></label></div>
-  </div>
-  <aside class="summary"><h3>Tu reserva</h3><dl>
-    <dt>Servicio</dt><dd>${sv?esc(sv.name):'—'}</dd><dt>Barbero</dt><dd>${b?esc(b.name):bk.time&&bk.slotBarber?esc(byId('barbers',bk.slotBarber).name):'Cualquiera'}</dd>
-    <dt>Fecha</dt><dd>${bk.date?esc(cap(longDate(bk.date))):'—'}</dd><dt>Hora</dt><dd>${bk.time||'—'}</dd><dt>Duración</dt><dd>${sv?dur+' min':'—'}</dd></dl>
-    <div class="total"><span>Total</span><span>${sv?money(sv.price):'—'}</span></div>
-    <div id="bkMsg" style="margin-top:12px"></div>
-    <button class="btn" style="width:100%;margin-top:12px" data-act="bkGo" ${ready&&canWrite?'':'disabled'}>Confirmar reserva</button>
-    <p class="note" style="margin-bottom:0">${!canWrite?'Tu acceso a esta página es de solo lectura: pide a la barbería acceso de colaborador o reserva por WhatsApp.':ready?'Pago en la barbería.':'Completa servicio, hora, nombre y teléfono.'}</p>
-  </aside></div>`;
+const WSTEPS=[['Servicio','Empecemos: ¿qué te hacemos hoy?'],['Barbero','Buena elección. ¿Con quién te atiendes?'],['Día y hora','Vas muy bien: elige cuándo vienes'],['Tus datos','¡Ya casi! Solo falta saber quién eres'],['Confirmar','Último paso: revisa y confirma']];
+const bkReady=()=>bk.service&&bk.time&&bk.name.trim()&&digits(bk.phone).length>=8;
+function firstOpen(){if(!bk.service)return 0;if(!bk.barberPicked)return 1;if(!bk.time)return 2;if(!bk.name.trim()||digits(bk.phone).length<8)return 3;return 4}
+function wizOpen(step){bk.open=true;bk.done=null;bk.step=step??firstOpen();bk.shown=-1;bk.dir=1;try{document.body.style.overflow='hidden'}catch(e){}renderWiz()}
+function wizClose(){bk.open=false;$('#wiz').hidden=true;$('#wiz').innerHTML='';document.body.style.overflow='';if(location.hash==='#reservar')try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}if(pending)refresh()}
+function wizGo(n){if(n===bk.step)return;bk.dir=n>bk.step?1:-1;bk.step=n;renderWiz();const body=$('#wiz .wz-body');if(body)body.scrollTop=0}
+function wizAuto(){setTimeout(()=>{if(bk.open&&!bk.done)wizGo(firstOpen())},230)}
+function renderWiz(){const w=$('#wiz');if(!bk.open){w.hidden=true;return}w.hidden=false;
+  const key=bk.done?'done':bk.step;const anim=bk.shown!==key?(bk.dir>0?'fwd':'back'):'';bk.shown=key;
+  const y=$('#wiz .wz-body')?$('#wiz .wz-body').scrollTop:0;w.innerHTML=wizHTML(anim);if(!anim){const b=$('#wiz .wz-body');if(b)b.scrollTop=y}}
+function wizHTML(anim){
+  const sv=D.services.find(s=>s.id===bk.service),dur=sv?Number(sv.dur):30;
+  const barberName=bk.barber==='any'?(bk.time&&bk.slotBarber?byId('barbers',bk.slotBarber).name:'Cualquiera'):byId('barbers',bk.barber).name;
+  const pct=bk.done?100:Math.round((bk.step/WSTEPS.length)*100)+6;
+  const close='<button class="wz-x" data-act="wizClose" aria-label="Cerrar">×</button>';
+  if(bk.done){const a=bk.done,s2=byId('services',a.serviceId),b=byId('barbers',a.barberId);const wa=waShop(`Hola, reservé ${s2.name} con ${b.name} el ${longDate(a.date)} a las ${a.time}. A nombre de ${a.name}.`);
+    return `<div class="wz-top"><div class="w"><div class="wz-head"><span class="lbl">Reserva completa</span>${close}</div><div class="prog"><i style="width:100%"></i></div><p class="cheer">¡Listo! Te esperamos</p></div></div>
+    <div class="wz-body"><div class="w done ${anim}"><div class="seal">${S('0 0 100 100','<circle cx="50" cy="50" r="46"/><circle cx="50" cy="50" r="40" opacity=".5"/><path d="M32 51l12 12 24-26" stroke-width="3"/>')}</div>
+      <h2>Tu cita está reservada, ${esc(a.name.split(' ')[0])}</h2><p class="lede" style="margin:0 auto">${esc(s2.name)} con ${esc(b.name)}</p><div class="when">${esc(cap(longDate(a.date)))} · ${esc(a.time)}</div>
+      <p class="note">${esc(D.cfg.shop)}${D.cfg.address?' · '+esc(D.cfg.address):''}. La barbería la confirmará pronto.</p>
+      <div class="row"><a class="btn" href="${esc(gcal(a))}" target="_blank" rel="noopener">${ICON.cal.replace('<svg','<svg width="18" height="18"')} Agregar a Google Calendar</a><button class="btn ghost" data-act="ics" data-id="${esc(a.id)}">Apple / Outlook</button>${wa?`<a class="btn ghost" href="${esc(wa)}" target="_blank" rel="noopener">Avisar por WhatsApp</a>`:''}</div></div></div>
+    <div class="wz-foot"><div class="w"><button class="btn ghost" data-act="bkNew">Reservar otra</button><span class="sp"></span><a class="btn" href="#mis-citas" data-act="wizClose">Ver mis citas</a></div></div>`}
+  const crumbs=[sv&&[0,sv.name],bk.barberPicked&&[1,barberName],bk.time&&[2,shortDate(bk.date)+' · '+bk.time]].filter(Boolean);
+  let body='';
+  if(!D.services.length||!D.barbers.length)body='<h2>Reservas no disponibles</h2><p class="lede">La barbería aún no ha agregado servicios o barberos.</p>';
+  else if(bk.step===0)body=`<h2>Elige tu servicio</h2>${sortBy(D.services,'order').map(s=>`<button class="opt" data-act="bkSvc" data-id="${esc(s.id)}" aria-pressed="${s.id===bk.service}"><b>${esc(s.name)}</b><span class="pr">${money(s.price)}<span>${Number(s.dur)} min</span></span><small>${esc(s.desc||'')}</small></button>`).join('')}`;
+  else if(bk.step===1)body=`<h2>¿Con quién?</h2><div class="bgrid"><button class="bopt" data-act="bkBarber" data-id="any" aria-pressed="${bk.barberPicked&&bk.barber==='any'}"><div class="pic">${S('0 0 100 100','<circle cx="50" cy="50" r="30"/><path d="M50 32v18l12 8"/><circle cx="50" cy="50" r="36" stroke-dasharray="2 5" opacity=".6"/>')}</div><div class="tx"><b>Cualquiera</b><small>El primero disponible</small></div></button>${sortBy(D.barbers,'order').map(x=>`<button class="bopt" data-act="bkBarber" data-id="${esc(x.id)}" aria-pressed="${bk.barberPicked&&x.id===bk.barber}"><div class="pic">${portrait(x)}</div><div class="tx"><b>${esc(x.name)}</b><small>${esc(x.spec||'Barbero')}</small></div></button>`).join('')}</div>`;
+  else if(bk.step===2){const dates=[...Array(21)].map((_,i)=>addDays(today(),i));if(!bk.date||!hoursFor(bk.date))bk.date=dates.find(d=>hoursFor(d)&&slots(d,bk.barber,dur).some(x=>x.b))||dates.find(d=>hoursFor(d))||dates[0];
+    const sl=slots(bk.date,bk.barber,dur).filter(x=>x.b);const G=[['Mañana',0,720],['Tarde',720,1080],['Noche',1080,1440]];
+    body=`<h2>¿Cuándo vienes?</h2><div class="dstrip">${dates.map(d=>{const dd=new Date(d+'T12:00');return `<button class="chip" data-act="bkDate" data-d="${d}" aria-pressed="${d===bk.date}" ${hoursFor(d)?'':'disabled'}><small>${d===today()?'hoy':DOW[dd.getDay()]}</small><b>${dd.getDate()}</b><small>${dd.toLocaleDateString('es-MX',{month:'short'}).replace('.','')}</small></button>`}).join('')}</div>
+    <p class="note" style="margin-top:0">${esc(cap(longDate(bk.date)))} · ${sl.length} horarios libres</p>
+    ${sl.length?G.map(([n,a,z])=>{const g=sl.filter(x=>toMin(x.t)>=a&&toMin(x.t)<z);return g.length?`<div class="tgroup"><h4>${n}</h4><div class="times">${g.map(x=>`<button class="chip" data-act="bkTime" data-t="${x.t}" data-b="${esc(x.b)}" aria-pressed="${x.t===bk.time}">${x.t}</button>`).join('')}</div></div>`:''}).join(''):'<p class="msg">No quedan horarios este día. Prueba otra fecha.</p>'}`}
+  else if(bk.step===3)body=`<h2>¿A nombre de quién?</h2><form id="bkForm" style="max-width:520px"><label>Nombre<input id="bkName" autocomplete="name" value="${esc(bk.name)}" placeholder="Tu nombre"></label><label>Teléfono / WhatsApp<input id="bkPhone" inputmode="tel" autocomplete="tel" value="${esc(bk.phone)}" placeholder="10 dígitos"></label><label>Comentario (opcional)<input id="bkNotes" value="${esc(bk.notes)}" placeholder="Ej. degradado bajo, solo tijera"></label><p class="note" style="margin:0">Solo la barbería verá tus datos. Los recordamos en este dispositivo para la próxima vez.</p></form>`;
+  else body=`<h2>Revisa tu cita</h2><div class="review"><dl>
+    <dt>Servicio</dt><dd>${esc(sv?sv.name:'')}</dd><dd><button class="ed" data-act="wizGo" data-n="0">Cambiar</button></dd>
+    <dt>Barbero</dt><dd>${esc(barberName)}</dd><dd><button class="ed" data-act="wizGo" data-n="1">Cambiar</button></dd>
+    <dt>Cuándo</dt><dd>${esc(cap(longDate(bk.date)))}, ${esc(bk.time||'')}</dd><dd><button class="ed" data-act="wizGo" data-n="2">Cambiar</button></dd>
+    <dt>Duración</dt><dd>${dur} min</dd><dd></dd>
+    <dt>A nombre de</dt><dd>${esc(bk.name)} · ${esc(bk.phone)}</dd><dd><button class="ed" data-act="wizGo" data-n="3">Cambiar</button></dd>
+    ${bk.notes?`<dt>Comentario</dt><dd>${esc(bk.notes)}</dd><dd></dd>`:''}</dl>
+    <div class="total" style="margin-top:16px"><span>Total</span><span>${sv?money(sv.price):''}</span></div><p class="note" style="margin-bottom:0">Pago en la barbería.${D.cfg.address?' '+esc(D.cfg.address)+'.':''}</p></div>
+    ${!canWrite?'<p class="msg err">Tu acceso a esta página es de solo lectura: pide a la barbería acceso de colaborador o reserva por WhatsApp.</p>':''}`;
+  const left=WSTEPS.length-bk.step-1;
+  const nextBtn=bk.step===3?`<button class="btn" data-act="wizNext" ${bk.name.trim()&&digits(bk.phone).length>=8?'':'disabled'}>Continuar</button>`:bk.step===4?`<button class="btn" data-act="bkGo" ${bkReady()&&canWrite?'':'disabled'}>Confirmar cita</button>`:(bk.step===0&&bk.service)||(bk.step===1&&bk.barberPicked)||(bk.step===2&&bk.time)?'<button class="btn" data-act="wizNext">Continuar</button>':'';
+  return `<div class="wz-top"><div class="w"><div class="wz-head"><span class="lbl">Paso ${bk.step+1} de ${WSTEPS.length} · ${left===0?'¡último paso!':left===1?'falta 1':'faltan '+left}</span>${close}</div>
+    <div class="prog"><i style="width:${pct}%"></i></div><p class="cheer">${WSTEPS[bk.step][1]}</p>
+    ${crumbs.length?`<div class="crumbs">${crumbs.map(([n,t])=>`<button data-act="wizGo" data-n="${n}">${esc(t)}</button>`).join('')}</div>`:''}</div></div>
+  <div class="wz-body"><div class="w ${anim}">${body}</div></div>
+  <div class="wz-foot"><div class="w">${bk.step>0?'<button class="btn ghost" data-act="wizBack">Atrás</button>':''}<span class="sum">${sv?`<b>${money(sv.price)}</b>${esc(sv.name)}${bk.time?' · '+esc(shortDate(bk.date))+' '+esc(bk.time):''}`:'Elige un servicio para empezar'}</span>${nextBtn}</div></div>`;
 }
 function mineHTML(){const list=D.mine.slice().sort((a,b)=>when(b)-when(a));
   if(!list.length)return '<p class="lede">Aún no tienes citas reservadas desde este acceso. <a href="#reservar">Reserva aquí</a>.</p>';
@@ -576,10 +660,13 @@ function render(){
   if(st.view==='site'){scrollTo(0,y);const t=$('#tour');if(t)t.scrollLeft=tx}
 }
 function route(){const h=location.hash.slice(1);$('#links').classList.remove('open');$('#menuBtn').setAttribute('aria-expanded','false');
+  if(h==='reservar'){if(st.view!=='site'){st.view='site';render()}if(!bk.open)wizOpen();return}
+  if(bk.open)wizClose();
   if(h==='panel'){if(st.view!=='panel'){st.view='panel';render()}scrollTo(0,0);return}
   if(st.view!=='site'){st.view='site';render()}
   const el=h&&document.getElementById(h);if(el)el.scrollIntoView();}
 addEventListener('hashchange',route);
+addEventListener('keydown',e=>{if(e.key==='Escape'&&bk.open&&!$('#dlg').open)wizClose()});
 $('#menuBtn').addEventListener('click',()=>{const o=$('#links').classList.toggle('open');$('#menuBtn').setAttribute('aria-expanded',o)});
 
 /* ============ diálogos ============ */
@@ -606,17 +693,22 @@ document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const act=b.dataset.act,id=b.dataset.id;
   const A=()=>allAppts().find(x=>x.id===id);
   switch(act){
-  case 'bookWith':bk.barber=id;bk.time=null;bk.done=null;render();document.getElementById('reservar').scrollIntoView();break;
-  case 'bkSvc':bk.service=id;bk.time=null;render();break;
-  case 'bkBarber':bk.barber=id;bk.time=null;render();break;
-  case 'bkDate':bk.date=b.dataset.d;bk.time=null;render();break;
-  case 'bkTime':bk.time=b.dataset.t;bk.slotBarber=b.dataset.b;render();break;
-  case 'bkNew':bk.done=null;bk.time=null;render();break;
+  case 'bookWith':bk.barber=id;bk.barberPicked=true;bk.time=null;wizOpen();break;
+  case 'wizOpen':wizOpen();break;
+  case 'wizClose':wizClose();break;
+  case 'wizBack':wizGo(Math.max(0,bk.step-1));break;
+  case 'wizNext':wizGo(Math.min(4,bk.step===2&&!bk.time?2:bk.step+1));break;
+  case 'wizGo':wizGo(+b.dataset.n);break;
+  case 'bkSvc':{const ch=bk.service!==id;bk.service=id;if(ch)bk.time=null;renderWiz();wizAuto();break}
+  case 'bkBarber':{const ch=bk.barber!==id;bk.barber=id;bk.barberPicked=true;if(ch)bk.time=null;renderWiz();wizAuto();break}
+  case 'bkDate':bk.date=b.dataset.d;bk.time=null;renderWiz();break;
+  case 'bkTime':bk.time=b.dataset.t;bk.slotBarber=b.dataset.b;renderWiz();wizAuto();break;
+  case 'bkNew':bk.done=null;bk.time=null;bk.service=null;bk.step=0;bk.shown=-1;bk.dir=-1;renderWiz();break;
   case 'bkGo':{const sv=byId('services',bk.service);const barberId=bk.barber==='any'?bk.slotBarber:bk.barber;
-    if(!isFree(barberId,bk.date,toMin(bk.time),Number(sv.dur))){bk.time=null;render();toast('Ese horario se ocupó','Elige otro, por favor.');return}
+    if(!isFree(barberId,bk.date,toMin(bk.time),Number(sv.dur))){bk.time=null;wizGo(2);toast('Ese horario se acaba de ocupar','Elige otro, por favor.');return}
     const a={id:uid(),name:bk.name.trim(),phone:bk.phone.trim(),notes:bk.notes.trim(),barberId,serviceId:sv.id,date:bk.date,time:bk.time,dur:Number(sv.dur),price:Number(sv.price),status:'pendiente',remind:60,createdAt:new Date().toISOString()};
     try{localStorage.setItem('barberia-yo',JSON.stringify({name:a.name,phone:a.phone}))}catch(e){}
-    b.disabled=true;await saveBookings(me,[...D.mine,a]);await syncBusy(a);bk.done=a;bk.notes='';render();document.getElementById('reservar').scrollIntoView();break}
+    b.disabled=true;b.textContent='Reservando…';await saveBookings(me,[...D.mine,a]);await syncBusy(a);bk.done=a;bk.notes='';bk.time=null;bk.dir=1;renderWiz();render();break}
   case 'ics':{const a=D.mine.find(x=>x.id===id)||(bk.done&&bk.done.id===id?bk.done:null);if(a)ics(a);break}
   case 'myCancel':{if(!b.dataset.sure){b.dataset.sure=1;b.textContent='¿Seguro?';return}const items=D.mine.map(x=>x.id===id?{...x,status:'cancelada'}:x);await saveBookings(me,items);await syncBusy(items.find(x=>x.id===id));toast('Cita cancelada','Gracias por avisar.');render();break}
   case 'tour':{const t=$('#tour');if(t)t.scrollBy({left:(+b.dataset.n)*t.clientWidth*.8,behavior:'smooth'});break}
@@ -643,7 +735,7 @@ document.addEventListener('click',async e=>{
   }
 });
 document.addEventListener('input',e=>{const t=e.target;
-  if(t.id==='bkName'||t.id==='bkPhone'||t.id==='bkNotes'){bk[{bkName:'name',bkPhone:'phone',bkNotes:'notes'}[t.id]]=t.value;const ready=bk.service&&bk.time&&bk.name.trim()&&digits(bk.phone).length>=8;const g=document.querySelector('[data-act=bkGo]');if(g)g.disabled=!(ready&&canWrite)}
+  if(t.id==='bkName'||t.id==='bkPhone'||t.id==='bkNotes'){bk[{bkName:'name',bkPhone:'phone',bkNotes:'notes'}[t.id]]=t.value;const g=document.querySelector('#wiz [data-act=wizNext]');if(g)g.disabled=!(bk.name.trim()&&digits(bk.phone).length>=8)}
   if(t.id==='cSearch'){st.q=t.value;const p=t.selectionStart;render();const s=$('#cSearch');s.focus();s.setSelectionRange(p,p)}});
 document.addEventListener('change',async e=>{const t=e.target;
   if(t.id==='fBarber'){st.barber=t.value;render()}
@@ -656,6 +748,7 @@ document.addEventListener('change',async e=>{const t=e.target;
     if(d.cfg){D.cfg={...DEF,...d.cfg};await saveCfg()}for(const l of ['barbers','services','gallery','clients','appts'])for(const x of(d[l]||[]))if(x&&x.id){await put(l,x);if(l==='appts')await syncBusy(x)}
     toast('Importado','Respaldo cargado.');render()}catch(err){$('#sMsg').innerHTML='<p class="msg err">El archivo no es un respaldo válido.</p>'}}});
 document.addEventListener('submit',async e=>{
+  if(e.target.id==='bkForm'){e.preventDefault();if(bk.name.trim()&&digits(bk.phone).length>=8)wizGo(4);return}
   if(e.target.id==='fAppt'){e.preventDefault();const old=st.edit?allAppts().find(x=>x.id===st.edit):null;const msg=h=>$('#aMsg').innerHTML='<p class="msg err">'+h+'</p>';
     const sv=byId('services',$('#aService').value);let who={};
     if(old&&old._src==='bk')who={name:old.name,phone:old.phone};

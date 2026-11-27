@@ -1,358 +1,907 @@
-<title>Maestro de Taller</title>
+<title>Vortice Taller</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Manrope:wght@400;500;600;700;800&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <style>
-/* Layout: one column workbench — sticky header with area selector, conversation, composer docked at the bottom. */
+/* Layout: phone-first app shell like Vortice Docs — fixed top bar, one view at a time, bottom tab bar; sheets slide up for forms. Single dark theme by choice, to match Vortice. */
 :root{
-  --bg:#f3f6f8; --surface:#ffffff; --sunken:#e8eef2; --line:#d3dde4;
-  --fg:#15232d; --muted:#5a6b77; --ink:#0e4a6b; --copper:#b4572a; --copper-soft:#f6e7df;
-  --ok:#2f7d4f; --warn:#a86a00; --bad:#b3261e;
-  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
-  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  --r:10px;
+  --bg:#070b12; --s1:#101826; --s2:#172234; --s3:#1f2d43; --line:#22324a; --line2:#2f4566;
+  --text:#eaf1f8; --mut:#8ea2b8; --brand:#2f8cff; --brand2:#22d3ee; --ok:#22c57a; --warn:#ffb020; --bad:#ff5d6c; --cost:#ff8a4c;
+  --f-d:"Sora","Manrope",system-ui,sans-serif; --f-b:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r:16px; color-scheme:dark;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0f171d; --surface:#16222a; --sunken:#1c2a33; --line:#2a3b46;
-  --fg:#e3ebf0; --muted:#93a5b1; --ink:#7cc4e8; --copper:#e08a5c; --copper-soft:#3a251b;
-  --ok:#6cc792; --warn:#e2b04a; --bad:#f08a80; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0f171d; --surface:#16222a; --sunken:#1c2a33; --line:#2a3b46;
-  --fg:#e3ebf0; --muted:#93a5b1; --ink:#7cc4e8; --copper:#e08a5c; --copper-soft:#3a251b;
-  --ok:#6cc792; --warn:#e2b04a; --bad:#f08a80; color-scheme:dark}
-*{box-sizing:border-box}
-html,body{height:100%}
-body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.55}
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
-.wrap{max-width:820px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
-.bar{display:flex;align-items:center;gap:12px;padding-block:10px}
-.brand{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1}
-.brand h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:1.6rem;letter-spacing:.02em;text-transform:uppercase;color:var(--ink);line-height:1}
-.brand span{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.iconbtn{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:7px 10px;font:500 .82rem var(--f-body);cursor:pointer;white-space:nowrap}
-.iconbtn:hover{border-color:var(--ink)}
-button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--copper);outline-offset:2px}
-.areas{display:flex;gap:6px;overflow-x:auto;padding-block:0 10px;scrollbar-width:none}
-.areas::-webkit-scrollbar{display:none}
-.chip{flex:none;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:999px;padding:6px 12px;font:500 .84rem var(--f-body);cursor:pointer}
-.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
-
-main{padding-block:16px 220px}
-.intro{display:grid;gap:14px}
-.intro p{margin:0;color:var(--muted);max-width:62ch}
-.label{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.examples{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
-.ex{text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:var(--r);padding:12px 14px;font:400 .92rem/1.4 var(--f-body);cursor:pointer;display:grid;gap:4px}
-.ex b{font-family:var(--f-mono);font-weight:500;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--copper)}
-.ex:hover{border-color:var(--copper)}
-
-details.ficha{border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
-details.ficha summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:.92rem;display:flex;justify-content:space-between;gap:8px;list-style:none}
-details.ficha summary::-webkit-details-marker{display:none}
-details.ficha summary .state{font:400 .76rem var(--f-mono);color:var(--muted)}
-.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px 14px}
-.fgrid label{display:grid;gap:4px;font-size:.78rem;color:var(--muted);min-width:0}
-.fgrid .full{grid-column:1/-1}
-.fgrid input,.fgrid textarea{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:8px;padding:8px 10px;font:400 .92rem var(--f-body)}
-.fgrid textarea{resize:vertical;min-height:56px;font-family:var(--f-mono);font-size:.84rem}
-@media (max-width:520px){.fgrid{grid-template-columns:1fr}}
-
-.thread{display:grid;gap:18px;margin-top:18px}
-.msg{min-width:0}
-.msg.user{justify-self:end;max-width:88%;background:var(--ink);color:var(--surface);border-radius:14px 14px 4px 14px;padding:10px 14px;white-space:pre-wrap;word-wrap:break-word}
-.msg.user .meta{font:400 .7rem var(--f-mono);opacity:.75;margin-top:4px}
-.msg.bot{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:4px 18px 12px}
-.msg.bot .tag{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:10px;font:500 .7rem var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--copper)}
-.msg.bot .tools{display:flex;gap:6px}
-.msg.bot .tools button{border:none;background:var(--sunken);color:var(--fg);border-radius:6px;padding:4px 8px;font:500 .72rem var(--f-body);cursor:pointer;text-transform:none;letter-spacing:0}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%}
+body{background:radial-gradient(900px 520px at 0% -8%,rgba(47,140,255,.20),transparent 62%),radial-gradient(700px 460px at 105% 4%,rgba(34,211,238,.13),transparent 60%),var(--bg);background-attachment:fixed;color:var(--text);font:15px/1.5 var(--f-b);font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:#0a111c}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brand2);outline-offset:2px}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:rgba(10,17,28,.86);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top .in{max-width:720px;margin:0 auto;display:flex;align-items:center;gap:10px;padding-block:10px}
+.logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand2));display:grid;place-items:center;font:700 .95rem var(--f-d);color:#04101f;flex:none}
+.top h1{margin:0;font:700 1.05rem var(--f-d);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top h1 small{display:block;font:500 .72rem var(--f-b);color:var(--mut)}
+.back{background:none;border:0;color:var(--brand2);font-weight:700;padding:6px 4px}
+.sync{font-size:.7rem;font-weight:700;padding:4px 8px;border-radius:99px;background:var(--s2);color:var(--mut);white-space:nowrap}
+.sync.ok{color:var(--ok)}
+.icon{background:var(--s2);border:1px solid var(--line);border-radius:10px;width:38px;height:38px;display:grid;place-items:center;font-size:1.05rem;flex:none}
+main{max-width:720px;margin:0 auto;padding-block:16px calc(96px + env(safe-area-inset-bottom,0px))}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:rgba(10,17,28,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.tabs .in{max-width:720px;margin:0 auto;display:flex}
+.tabs button{flex:1;background:none;border:0;color:var(--mut);padding:8px 0 9px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:1.3rem;position:relative}
+.tabs button span{font-size:.68rem;font-weight:700}
+.tabs button.on{color:var(--text)}
+.tabs button.on::before{content:"";position:absolute;top:0;left:28%;right:28%;height:3px;border-radius:0 0 3px 3px;background:linear-gradient(90deg,var(--brand),var(--brand2))}
+.view{display:grid;gap:14px}
+h2{margin:0;font:700 1.3rem/1.2 var(--f-d);text-wrap:balance}
+h3{margin:6px 0 0;font-size:.74rem;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);font-weight:800}
+.muted{color:var(--mut);font-size:.86rem}
+.card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r);padding:14px;min-width:0}
+.hero{background:linear-gradient(135deg,rgba(47,140,255,.22),rgba(34,211,238,.10));border:1px solid var(--line2);border-radius:20px;padding:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.kpi{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:12px;min-width:0}
+.kpi small{display:block;color:var(--mut);font-size:.72rem;font-weight:700}
+.kpi b{display:block;font:700 1.12rem var(--f-d);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpis.mini{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.kpis.mini .kpi{padding:8px 6px;text-align:center}.kpis.mini small{font-size:.6rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi i{font-style:normal;font-size:.72rem;font-weight:700}
+.up{color:var(--ok)}.down{color:var(--bad)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line2);border-radius:12px;padding:12px 14px;font-weight:800;background:var(--s2);color:var(--text);text-decoration:none;min-height:46px}
+.btn:active{transform:scale(.98)}
+.btn.p{background:linear-gradient(135deg,var(--brand),#1f6fd1);border-color:transparent;color:#fff}
+.btn.g{background:#1a9d5f;border-color:transparent;color:#fff}
+.btn.wa{background:#1fae5b;border-color:transparent;color:#fff}
+.btn.d{background:transparent;color:var(--bad);border-color:#5a2a33}
+.btn.sm{min-height:36px;padding:7px 11px;font-size:.84rem;border-radius:10px}
+.btn.w{width:100%}
+.btn:disabled{opacity:.45;cursor:default}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.quick button{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:12px 4px;display:grid;gap:4px;justify-items:center;font-size:1.4rem}
+.quick button span{font-size:.7rem;font-weight:700;color:var(--mut);text-align:center;line-height:1.2}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;background:var(--s2);border:1px solid var(--line);color:var(--mut);border-radius:99px;padding:7px 12px;font-size:.84rem;font-weight:700;white-space:nowrap}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.chip em{font-style:normal;opacity:.75;margin-left:4px}
+.seg{display:flex;background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:none;color:var(--mut);border-radius:9px;padding:9px 4px;font-weight:800;font-size:.8rem;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.seg button.on{background:var(--s3);color:var(--text)}
+.list{display:grid;gap:8px}
+.row{display:flex;align-items:center;gap:12px;background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:left;width:100%;min-width:0}
+.row .em{font-size:1.5rem;width:42px;height:42px;border-radius:12px;background:var(--s2);display:grid;place-items:center;flex:none}
+.row .tx{flex:1;min-width:0}
+.row .tx b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .tx small{display:block;color:var(--mut);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .rt{text-align:right;white-space:nowrap;font-weight:800}
+.row .rt small{display:block;font-weight:600;color:var(--mut);font-size:.74rem}
+.pill{display:inline-block;font-size:.68rem;font-weight:800;padding:3px 8px;border-radius:99px;background:#1d3150;color:#9ec9ff;white-space:nowrap}
+.pill.programado{background:#1d3150;color:#9ec9ff}.pill.confirmado{background:#0f3a3f;color:#5fe3f0}.pill.en_curso{background:#3d3112;color:#ffcf66}.pill.terminado{background:#123b29;color:#5fe0a0}.pill.cancelado{background:#3d1720;color:#ff9aa5}
+.empty{text-align:center;padding:22px 14px;color:var(--mut);border:1px dashed var(--line2);border-radius:var(--r)}
+.empty b{display:block;color:var(--text);font-size:1rem;margin-bottom:4px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.tile{background:var(--s2);border:1px solid var(--line);border-radius:14px;padding:12px 6px;display:grid;justify-items:center;gap:4px;text-align:center}
+.tile i{font-style:normal;font-size:1.6rem}
+.tile span{font-size:.74rem;font-weight:700;line-height:1.2}
+.tile.on{border-color:var(--brand2);background:rgba(34,211,238,.12)}
+label.f{display:grid;gap:5px;font-size:.78rem;font-weight:700;color:var(--mut);min-width:0}
+input,select,textarea{width:100%;background:var(--s2);border:1px solid var(--line);border-radius:11px;padding:11px 12px;font-size:16px;color:var(--text);min-width:0}
+textarea{resize:vertical;min-height:70px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);border-color:transparent}
+.fg{display:grid;gap:10px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:420px){.quick span{font-size:.64rem}}
+/* week strip */
+.week{display:grid;grid-template-columns:auto repeat(7,1fr) auto;gap:4px;align-items:stretch}
+.week .nav{background:none;border:0;color:var(--mut);font-size:1.3rem;padding:0 2px}
+.day{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:7px 0;display:grid;justify-items:center;gap:1px}
+.day small{font-size:.64rem;color:var(--mut);font-weight:800;text-transform:uppercase}
+.day b{font:700 1rem var(--f-d)}
+.day .dots{height:6px;display:flex;gap:2px}
+.day .dots i{width:5px;height:5px;border-radius:50%;background:var(--brand2)}
+.day.on{background:linear-gradient(160deg,var(--brand),#1f6fd1);border-color:transparent}
+.day.on small{color:#dbe9ff}.day.on .dots i{background:#fff}
+.day.today b{color:var(--brand2)}.day.on.today b{color:#fff}
+.job{display:grid;grid-template-columns:58px 1fr;gap:12px;background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:12px;min-width:0}
+.job .h{font:700 1rem var(--f-d);text-align:center;border-right:1px solid var(--line);padding-right:10px}
+.job .h small{display:block;font:600 .7rem var(--f-b);color:var(--mut)}
+.job .b{min-width:0;display:grid;gap:4px}
+.job .b b{overflow-wrap:anywhere}
+.job .b small{color:var(--mut);font-size:.8rem;overflow-wrap:anywhere}
+.job .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+/* chart */
+.chart{overflow-x:auto}
+.chart svg{display:block;width:100%;min-width:420px;height:auto}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.76rem;color:var(--mut);font-weight:700}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.hbar{display:grid;gap:8px}
+.hbar div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:.84rem}
+.hbar span.t{height:7px;border-radius:4px;background:var(--s2);grid-column:1/-1;overflow:hidden}
+.hbar span.t i{display:block;height:100%;border-radius:4px}
+table.t{width:100%;border-collapse:collapse;font-size:.8rem}
+table.t th,table.t td{padding:7px 4px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+table.t th:first-child,table.t td:first-child{text-align:left}
+table.t th{color:var(--mut);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
+.tot{display:flex;justify-content:space-between;gap:10px;padding:6px 0;color:var(--mut)}
+.tot b{color:var(--text)}
+.tot.big{font:700 1.2rem var(--f-d);color:var(--text);border-top:1px solid var(--line);margin-top:4px;padding-top:10px}
+/* chat */
+.chathead{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.thread{display:grid;gap:14px}
+.msg.user{justify-self:end;max-width:88%;background:linear-gradient(135deg,var(--brand),#1f6fd1);color:#fff;border-radius:16px 16px 4px 16px;padding:10px 14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.user small{display:block;opacity:.8;font-size:.72rem;margin-top:4px}
+.msg.bot{background:var(--s1);border:1px solid var(--line);border-radius:var(--r);padding:6px 16px 12px;min-width:0}
+.msg.bot .tag{display:flex;justify-content:space-between;align-items:center;padding-top:8px;font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--brand2)}
 .md{overflow-wrap:anywhere}
-.md h2,.md h3{font-family:var(--f-display);font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--ink);margin:18px 0 6px;line-height:1.15;text-wrap:balance}
-.md h2{font-size:1.25rem;border-bottom:2px solid var(--copper-soft);padding-bottom:4px}
-.md h3{font-size:1.08rem}
-.md p{margin:8px 0}
-.md ul,.md ol{margin:6px 0;padding-left:1.3em}
-.md li{margin:3px 0}
-.md strong{color:var(--fg);font-weight:600}
-.md code{font-family:var(--f-mono);font-size:.86em;background:var(--sunken);padding:1px 5px;border-radius:4px}
-.md pre{background:var(--sunken);padding:10px 12px;border-radius:8px;overflow-x:auto}
-.md pre code{background:none;padding:0}
-.md blockquote{margin:10px 0;padding:8px 12px;border-left:3px solid var(--warn);background:var(--sunken);border-radius:0 8px 8px 0}
-.md .tbl{overflow-x:auto;margin:10px 0}
-.md table{border-collapse:collapse;font-size:.88rem;min-width:100%;font-variant-numeric:tabular-nums}
+.md h2{font:700 1.02rem var(--f-d);color:var(--brand2);margin:16px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.md h3{font:700 .92rem var(--f-d);color:var(--text);text-transform:none;letter-spacing:0;margin:12px 0 4px}
+.md p{margin:7px 0}.md ul,.md ol{margin:6px 0;padding-left:1.25em}.md li{margin:3px 0}
+.md code{background:var(--s2);padding:1px 5px;border-radius:5px;font-size:.88em}
+.md pre{background:var(--s2);padding:10px;border-radius:10px;overflow-x:auto}
+.md blockquote{margin:8px 0;padding:8px 12px;border-left:3px solid var(--warn);background:var(--s2);border-radius:0 10px 10px 0}
+.md .tbl{overflow-x:auto;margin:8px 0}
+.md table{border-collapse:collapse;font-size:.86rem;min-width:100%}
 .md th,.md td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
-.md th{background:var(--sunken);font-weight:600}
-.md a{color:var(--ink)}
-.thinking{color:var(--muted);font-style:italic;padding:10px 0}
-.thinking::after{content:"";display:inline-block;width:1.2em;text-align:left;animation:dots 1.2s steps(4) infinite}
+.md th{background:var(--s2)}
+.md a{color:var(--brand2)}
+.thinking{color:var(--mut);font-style:italic;padding:10px 0}
+.thinking::after{content:"";animation:dots 1.2s steps(4) infinite}
 @keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
-@media (prefers-reduced-motion:reduce){.thinking::after{animation:none;content:"…"}}
 .note{font-size:.82rem;color:var(--bad);margin-top:6px}
-
-.composer{position:fixed;left:0;right:0;bottom:0;z-index:6;background:linear-gradient(to top,var(--bg) 70%,transparent);padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
-.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px;display:grid;gap:6px;box-shadow:0 6px 20px rgba(14,74,107,.08)}
-.box textarea{width:100%;border:none;background:transparent;color:var(--fg);font:400 1rem/1.45 var(--f-body);resize:none;max-height:180px;min-height:44px;padding:6px 8px}
-.box textarea:focus-visible{outline:none}
-.row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.row .grow{flex:1}
-.tool{border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:8px;padding:7px 10px;font:500 .8rem var(--f-body);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
-.tool[aria-pressed="true"]{border-color:var(--copper);background:var(--copper-soft);color:var(--copper)}
+.composer{position:fixed;left:0;right:0;bottom:0;z-index:7;background:linear-gradient(to top,var(--bg) 72%,transparent);padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+.composer .in{max-width:720px;margin:0 auto}
+.cbox{background:var(--s1);border:1px solid var(--line2);border-radius:16px;padding:8px;display:grid;gap:6px}
+.cbox textarea{border:0;background:transparent;min-height:44px;max-height:170px;resize:none;padding:6px 8px}
+.cbox textarea:focus{outline:none}
+.crow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.crow .grow{flex:1}
+.tool{background:var(--s2);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:.8rem;font-weight:800;color:var(--text)}
+.tool.on{border-color:var(--brand2);color:var(--brand2)}
 .tool.rec{border-color:var(--bad);color:var(--bad)}
-.send{border:none;background:var(--copper);color:#fff;border-radius:10px;padding:9px 18px;font:600 .92rem var(--f-body);cursor:pointer}
-.send:disabled{opacity:.5;cursor:default}
-.send.stop{background:var(--fg);color:var(--bg)}
 .thumbs{display:flex;gap:6px;flex-wrap:wrap}
-.thumb{position:relative;width:56px;height:56px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.thumb{position:relative;width:54px;height:54px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
 .thumb img{width:100%;height:100%;object-fit:cover}
-.thumb button{position:absolute;top:2px;right:2px;border:none;background:rgba(0,0,0,.6);color:#fff;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:20px;padding:0;cursor:pointer}
-.status{font:400 .72rem var(--f-mono);color:var(--muted);padding:4px 4px 0}
-.svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.thumb button{position:absolute;top:2px;right:2px;border:0;background:rgba(0,0,0,.65);color:#fff;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:20px;padding:0}
+/* sheet */
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(2,6,12,.66);display:flex;align-items:flex-end;justify-content:center}
+.sheet>.pan{background:var(--s1);border:1px solid var(--line2);border-bottom:0;width:100%;max-width:720px;max-height:88vh;overflow:auto;border-radius:22px 22px 0 0;padding:14px max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:grid;gap:12px}
+.sheet .hd{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sheet .hd h2{font-size:1.1rem}
+.x{background:var(--s2);border:1px solid var(--line);border-radius:50%;width:34px;height:34px;font-size:1rem;flex:none}
+.preview{background:#0b141f;border:1px solid var(--line);border-radius:14px;padding:12px;white-space:pre-wrap;font-size:.9rem;overflow-wrap:anywhere}
+#toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#eaf1f8;color:#07101c;padding:10px 16px;border-radius:99px;font-weight:800;opacity:0;transition:opacity .25s;pointer-events:none;z-index:40;max-width:90vw;text-align:center}
+#toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
-<header>
-  <div class="wrap">
-    <div class="bar">
-      <div class="brand"><h1>Maestro de Taller</h1><span>frío · aire · hornos · soldadura · electricidad</span></div>
-      <button class="iconbtn" id="newChat" type="button">Nueva consulta</button>
-    </div>
-    <div class="areas" id="areas" role="group" aria-label="Área técnica"></div>
-  </div>
-</header>
+<header class="top gut"><div class="in">
+  <button class="back" id="hBack" type="button" hidden>‹ Volver</button>
+  <div class="logo" id="hLogo">V</div>
+  <h1 id="hTitle">Vortice Taller<small id="hSub">Asistente · Agenda · Finanzas · Facturas</small></h1>
+  <span class="sync" id="sync">Cargando…</span>
+  <button class="icon" type="button" data-act="settings" aria-label="Ajustes">⚙️</button>
+</div></header>
 
-<main class="wrap">
-  <section class="intro" id="intro">
-    <p>Describe la falla, el equipo y lo que mediste. Te respondo con diagnóstico, pruebas con valores esperados, opciones de reparación y las referencias técnicas de donde sale. Puedes adjuntar foto de la placa, del código de error o del tablero.</p>
-    <details class="ficha" id="ficha">
-      <summary>Datos del equipo <span class="state" id="fichaState">opcional · se envían con cada pregunta</span></summary>
-      <div class="fgrid">
-        <label>Equipo, marca y modelo<input id="fEquipo" placeholder="Ej: Cuarto frío Danfoss, compresor Copeland ZB21"></label>
-        <label>Refrigerante o gas<input id="fGas" placeholder="Ej: R-404A · GLP · gas natural"></label>
-        <label>Alimentación eléctrica<input id="fVolt" placeholder="Ej: 220 V 1F 60 Hz · 440 V 3F"></label>
-        <label>Ubicación / condiciones<input id="fLugar" placeholder="Ej: Panadería, clima cálido 32 °C"></label>
-        <label class="full">Mediciones tomadas<textarea id="fMed" placeholder="Succión 25 psi, descarga 280 psi, amperaje 9.8 A (placa RLA 8.6), sobrecalentamiento 18 °F…"></textarea></label>
-      </div>
-    </details>
-    <div class="label">Prueba con un caso real</div>
-    <div class="examples" id="examples"></div>
-  </section>
-  <section class="thread" id="thread" aria-live="polite"></section>
-</main>
+<main class="gut" id="view"></main>
 
-<div class="composer">
-  <div class="wrap">
-    <div class="box">
-      <div class="thumbs" id="thumbs" hidden></div>
-      <textarea id="q" rows="2" placeholder="¿Qué le pasa al equipo? Síntomas, cuándo empezó, qué ya revisaste…"></textarea>
-      <div class="row">
-        <button class="tool" id="photoBtn" type="button" hidden><svg class="svg" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Foto</button>
-        <input type="file" id="photo" accept="image/*" multiple hidden>
-        <button class="tool" id="micBtn" type="button" hidden><svg class="svg" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Dictar</span></button>
-        <button class="tool" id="deepBtn" type="button" aria-pressed="false" title="Usa el modelo más potente. Tarda más.">Análisis a fondo</button>
-        <span class="grow"></span>
-        <button class="send" id="send" type="button">Preguntar</button>
-      </div>
+<nav class="tabs" id="tabs"><div class="in">
+  <button type="button" data-tab="inicio">🏠<span>Inicio</span></button>
+  <button type="button" data-tab="asistente">🧠<span>Asistente</span></button>
+  <button type="button" data-tab="agenda">📅<span>Agenda</span></button>
+  <button type="button" data-tab="finanzas">💰<span>Finanzas</span></button>
+  <button type="button" data-tab="facturas">🧾<span>Facturas</span></button>
+</div></nav>
+
+<div class="composer gut" id="composer" hidden><div class="in">
+  <div class="cbox">
+    <div class="thumbs" id="thumbs" hidden></div>
+    <textarea id="q" rows="2" placeholder="Escribe la pregunta o lo que mediste…"></textarea>
+    <div class="crow">
+      <button class="tool" id="photoBtn" type="button" hidden>📷 Foto</button>
+      <button class="tool" id="micBtn" type="button" hidden>🎙️ Dictar</button>
+      <button class="tool" id="deepBtn" type="button">🔬 A fondo</button>
+      <span class="grow"></span>
+      <button class="btn p sm" id="sendBtn" type="button">Preguntar</button>
     </div>
-    <div class="status" id="status"></div>
   </div>
-</div>
+</div></div>
+
+<div id="sheetRoot"></div>
+<div id="toast" role="status"></div>
+<input type="file" id="fileIn" hidden>
 
 <script>
+"use strict";
 (function(){
-const AREAS=[
-  {id:"general",name:"Todo"},
-  {id:"frio",name:"Refrigeración"},
-  {id:"aire",name:"Aire acondicionado"},
-  {id:"hornos",name:"Hornos panadería"},
-  {id:"soldadura",name:"Soldadura y estructuras"},
-  {id:"elec",name:"Electricidad"}
-];
-const EXAMPLES=[
-  {a:"frio",t:"Cuarto frío R-404A no baja de 8 °C. Succión 18 psi, descarga 230 psi, escarcha solo a la entrada del evaporador."},
-  {a:"aire",t:"Minisplit inverter 12000 BTU enciende, la condensadora arranca y a los 3 minutos para. Parpadea el LED 5 veces."},
-  {a:"hornos",t:"Horno rotativo a gas: el quemador enciende y se apaga a los 10 segundos. Ya cambié el electrodo de ignición."},
-  {a:"hornos",t:"Pandebonero atmosférico de 3 bandejas quema abajo y deja crudo arriba. ¿Qué ajusto?"},
-  {a:"soldadura",t:"Qué electrodo y amperaje uso para soldar tubo estructural 2×2\" calibre 14 con planta de 220 V, y cómo evito perforar."},
-  {a:"elec",t:"Motor trifásico 5 HP a 220 V dispara el guardamotor a los 20 segundos de arrancar. ¿Cómo lo diagnostico?"}
-];
-const RULES=`Eres "Maestro de Taller": un técnico senior con 30 años de experiencia de campo y formación de ingeniería. Respondes a un técnico profesional en Colombia que trabaja en:
-- Refrigeración comercial e industrial: cuartos fríos, vitrinas, neveras y congeladores comerciales, máquinas de hielo, chillers, unidades condensadoras; compresores reciprocantes, scroll, semiherméticos y tornillo; válvulas de expansión (TXV, EEV, tubo capilar), controles (Danfoss, Full Gauge, Dixell, Carel, Eliwell), deshielo, presostatos; refrigerantes R-134a, R-404A, R-507A, R-22, R-410A, R-32, R-290, R-600a, R-448A, R-449A y R-717.
-- Aire acondicionado: minisplit on/off e inverter, piso-techo, cassette, paquete, central, VRF/VRV, fan coil, códigos de error, tarjetas, sensores (termistores), motores ECM.
-- Hornos de panadería: rotativos, de pisos, convección, atmosféricos, tipo tótem/torre, gaveteros, pandeboneros, cámaras de fermentación; quemadores atmosféricos y de aire forzado, válvulas de gas, termocuplas, sensores de llama por ionización, controles de ignición, termostatos, resistencias, ventiladores, rodamientos y reductores.
-- Soldadura y estructuras metálicas: SMAW, GMAW/MIG, FCAW, GTAW/TIG, oxiacetileno, soldadura fuerte de cobre (plata, fosco), selección de electrodos y parámetros, cálculo práctico de perfiles y uniones.
-- Electricidad: motores mono y trifásicos, contactores, relés térmicos, guardamotores, capacitores, arrancadores, variadores, tableros, calibres de conductor, protecciones y puesta a tierra.
+/* ================= utilidades ================= */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num=v=>{if(typeof v==="number")return v;v=String(v||"").replace(/[^\d,.\-]/g,"");if(v.includes(","))v=v.replace(/\./g,"").replace(",",".");else if((v.match(/\./g)||[]).length>1||/\.\d{3}$/.test(v))v=v.replace(/\./g,"");return parseFloat(v)||0};
+const money=n=>"$ "+Math.round(+n||0).toLocaleString("es-CO");
+const short=n=>{n=Math.round(+n||0);const a=Math.abs(n);if(a>=1e6)return "$"+(n/1e6).toLocaleString("es-CO",{maximumFractionDigits:1})+"M";if(a>=1e3)return "$"+Math.round(n/1e3)+"k";return "$"+n};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const isoOf=d=>new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const dOf=iso=>new Date(iso+"T12:00:00");
+const addDays=(iso,n)=>{const d=dOf(iso);d.setDate(d.getDate()+n);return isoOf(d)};
+const MES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const DIA=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+const fmtD=iso=>{if(!iso)return "";const [y,m,d]=iso.split("-");return `${d}/${m}/${y}`};
+const longD=iso=>{const d=dOf(iso);return `${DIA[d.getDay()]} ${d.getDate()} de ${MES[d.getMonth()]}`};
+const mk=iso=>iso.slice(0,7);
+const mkAdd=(k,n)=>{let [y,m]=k.split("-").map(Number);m+=n;while(m>12){m-=12;y++}while(m<1){m+=12;y--}return `${y}-${String(m).padStart(2,"0")}`};
+const mkName=(k,s)=>{const [y,m]=k.split("-").map(Number);const n=MES[m-1];return s?n.slice(0,3):n.charAt(0).toUpperCase()+n.slice(1)+" "+y};
+const hora12=h=>{if(!h)return "";let [H,M]=h.split(":").map(Number);const ap=H>=12?"p. m.":"a. m.";H=H%12||12;return `${H}:${String(M).padStart(2,"0")} ${ap}`};
+const phone=t=>{let p=String(t||"").replace(/\D/g,"");if(p.length===10)p="57"+p;return p};
+function toast(t){const el=$("#toast");el.textContent=t;el.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("on"),2300)}
+const LS={get(k,d){try{const v=localStorage.getItem("vt_"+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("vt_"+k,JSON.stringify(v))}catch(e){}}};
+async function copyText(t){try{await navigator.clipboard.writeText(t);toast("Copiado ✔");return true}catch(e){toast("No se pudo copiar: mantén presionado el texto para copiarlo");return false}}
 
-Contexto: Colombia, 60 Hz; tensiones típicas 120, 208, 220/240 y 440/480 V. Normas de referencia cuando apliquen: RETIE, NTC 2050, Resolución 90902 de 2013 (instalaciones de gas), NTC 2505, ASHRAE, AWS D1.1/D1.3. Da unidades en sistema métrico y entre paréntesis en el sistema que usa el técnico en campo (psi, °F, BTU/h, TR, AWG) cuando ayude.
+/* ================= catálogos ================= */
+const EQ=[
+ {id:"frio_com",i:"🧊",n:"Refrigeración comercial",d:"Neveras, vitrinas, congeladores"},
+ {id:"frio_ind",i:"🏭",n:"Cuarto frío / industrial",d:"Cámaras, chillers, condensadoras"},
+ {id:"aire",i:"❄️",n:"Aire acondicionado",d:"Minisplit, inverter, central, VRF"},
+ {id:"h_rot",i:"🔥",n:"Horno rotativo",d:"Quemador, ignición, carro giratorio"},
+ {id:"h_atm",i:"🍞",n:"Horno atmosférico / pisos",d:"Quemadores atmosféricos, pisos"},
+ {id:"totem",i:"🗼",n:"Horno tótem",d:"Torre, bandejas, gas o eléctrico"},
+ {id:"gavet",i:"🗄️",n:"Gavetero / fermentadora",d:"Cámara de crecimiento, humedad"},
+ {id:"pandeb",i:"🧀",n:"Pandebonero",d:"Hornos de bandejas para pandebono"},
+ {id:"sold",i:"⚒️",n:"Soldadura y estructuras",d:"SMAW, MIG, TIG, perfiles"},
+ {id:"elec",i:"⚡",n:"Electricidad y motores",d:"Tableros, contactores, motores"},
+ {id:"otro",i:"🛠️",n:"Otro equipo",d:"Cualquier otro caso"}
+];
+const TC=[
+ {id:"falla",i:"🩺",n:"Diagnóstico de falla"},{id:"codigo",i:"🔢",n:"Código de error"},{id:"instal",i:"🧰",n:"Instalación"},
+ {id:"mant",i:"🧽",n:"Mantenimiento"},{id:"calc",i:"📐",n:"Cálculo / selección"},{id:"rep",i:"🔄",n:"Repuestos / equivalencias"},{id:"norma",i:"📋",n:"Procedimiento / norma"}
+];
+const SERV=["Mantenimiento preventivo","Reparación","Diagnóstico / visita técnica","Instalación","Garantía","Montaje / soldadura","Trabajo eléctrico"];
+const EST=[["programado","Programado"],["confirmado","Confirmado"],["en_curso","En curso"],["terminado","Terminado"],["cancelado","Cancelado"]];
+const CAT={
+ ingreso:["Servicio técnico","Instalación","Mantenimiento","Venta de repuestos","Contrato","Otro ingreso"],
+ costo:["Repuestos y materiales","Refrigerante y gases","Ayudantes / mano de obra","Transporte del trabajo","Subcontratos"],
+ gasto:["Combustible y vehículo","Herramienta y equipos","Arriendo y servicios","Celular e internet","Publicidad","Impuestos y seguridad social","Comisiones bancarias","Otros gastos"]
+};
+const eq=id=>EQ.find(e=>e.id===id)||EQ[EQ.length-1];
+const tc=id=>TC.find(e=>e.id===id)||TC[0];
+const estN=id=>(EST.find(e=>e[0]===id)||EST[0])[1];
+const clase=cat=>CAT.costo.includes(cat)?"costo":CAT.gasto.includes(cat)?"gasto":"ingreso";
+
+/* ================= almacenamiento (nube del usuario o este celular) ================= */
+const COLS=["consultas","trabajos","movs","vortice"];
+const D={mode:"local",base:null,cfg:LS.get("cfg",{}),consultas:LS.get("consultas",[]),trabajos:LS.get("trabajos",[]),movs:LS.get("movs",[]),vortice:LS.get("vortice",[])};
+let readOnly=false;
+function cache(name){LS.set(name,D[name])}
+function setSync(t,ok){const s=$("#sync");s.textContent=t;s.classList.toggle("ok",!!ok)}
+function dbErr(e){const c=e&&e.code;if(c==="invalid_argument"){readOnly=true;toast("No tienes permiso para guardar aquí")}else if(c==="quota_exceeded")toast("Espacio lleno: borra registros viejos");else toast("No se pudo guardar. Revisa tu conexión")}
+function put(name,obj){
+  obj.id=obj.id||uid();obj.upd=Date.now();
+  const arr=D[name];const i=arr.findIndex(x=>x.id===obj.id);if(i>=0)arr[i]=obj;else arr.push(obj);
+  cache(name);
+  if(D.mode==="cloud"){const {id,...rest}=obj;return D.base.collection(name).doc(id).set(JSON.parse(JSON.stringify(rest))).catch(dbErr)}
+  return Promise.resolve();
+}
+function del(name,id){
+  D[name]=D[name].filter(x=>x.id!==id);cache(name);
+  if(D.mode==="cloud")return D.base.collection(name).doc(id).delete().catch(dbErr);
+  return Promise.resolve();
+}
+function saveCfg(){LS.set("cfg",D.cfg);if(D.mode==="cloud")D.base.set(JSON.parse(JSON.stringify({cfg:D.cfg}))).catch(dbErr)}
+let rerenderT=null;function soon(){clearTimeout(rerenderT);rerenderT=setTimeout(()=>{if(!sheetOpen&&!busy)render()},60)}
+async function initStore(){
+  let db=null,user=null;
+  try{[db,user]=await Promise.all([window.claude?.use("db"),window.claude?.use("user")])}catch(e){}
+  let id=null;try{id=user?await user.id():null}catch(e){}
+  if(!db||!id){setSync("En este celular");return}
+  D.mode="cloud";D.base=db.doc("data/users/"+id+"/meta");
+  setSync("Sincronizando…");
+  let first=0;const timer=setTimeout(()=>{if(first<COLS.length)setSync("Sin conexión")},10000);
+  D.base.onSnapshot(s=>{const c=s.exists&&s.data()&&s.data().cfg;if(c){D.cfg=c;LS.set("cfg",c);paintHead()}},()=>{});
+  COLS.forEach(name=>{
+    let got=false;
+    D.base.collection(name).onSnapshot(s=>{
+      D[name]=s.docs.map(d=>Object.assign({id:d.id},d.data()));cache(name);
+      if(!got){got=true;first++;if(first===COLS.length){clearTimeout(timer);setSync("☁️ En tu cuenta",true);migrateLocal()}}
+      soon();
+    },e=>{clearTimeout(timer);setSync("Sin conexión")});
+  });
+}
+// Si había datos guardados solo en el celular antes de conectar la nube, súbelos una vez.
+function migrateLocal(){
+  if(LS.get("migrated",false))return;LS.set("migrated",true);
+  const old=LS.get("v1turns",null);
+  if(old&&old.length){put("consultas",{equipo:"otro",tipo:"falla",titulo:(old.find(t=>t.role==="user")||{}).display||"Consulta anterior",turns:old.slice(-16).map(t=>({role:t.role,content:t.content,display:t.display})),fecha:Date.now()})}
+}
+try{const v1=localStorage.getItem("mt.turns");if(v1&&!LS.get("v1turns",null))LS.set("v1turns",JSON.parse(v1))}catch(e){}
+
+/* ================= datos de Vortice (copia importada) ================= */
+function vInfo(){return D.vortice.find(x=>x.id==="info")||null}
+function vRows(){return D.vortice.filter(x=>/^d\d+$/.test(x.id)).sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true})).flatMap(x=>x.rows||[])}
+function vClients(){const i=vInfo();return i&&i.clients||[]}
+function vSales(){
+  const rows=vRows();const refs=rows.filter(r=>r.t==="rc").map(r=>r.ref||"").join(" | ");
+  const out=[];
+  rows.forEach(r=>{
+    if(r.t==="rc")out.push({f:r.f,monto:r.tot,desc:`Recibo ${r.n} · ${r.c||"Cliente"}`,src:"v"});
+    else if(r.t==="cc"&&r.e==="pagado"&&!(r.n&&refs.includes(r.n)))out.push({f:r.f,monto:r.tot,desc:`Cuenta ${r.n} pagada · ${r.c||"Cliente"}`,src:"v"});
+  });
+  return out;
+}
+function vCobrar(){return vRows().filter(r=>r.t==="cc"&&r.e!=="pagado"&&r.sal>0)}
+function vCotPend(){return vRows().filter(r=>r.t==="cot"&&r.e==="pendiente")}
+async function importVortice(file){
+  let b;try{b=JSON.parse(await file.text())}catch(e){toast("Ese archivo no es una copia de Vortice");return}
+  if(!b||b.app!=="vortice-docs"||!Array.isArray(b.DOCS)){toast("Ese archivo no es una copia de Vortice");return}
+  const calc=d=>{const sub=(d.items||[]).reduce((a,it)=>a+num(it.c)*num(it.p),0);const desc=sub*num(d.desc)/100,base=sub-desc;const iva=d.ivaOn?base*num(d.ivaPct)/100:0,total=base+iva;const abono=d.tipo==="rc"?total:num(d.abono);const pag=d.estado==="pagado"?total:Math.min(abono,total);return {total,pag,saldo:Math.max(total-pag,0)}};
+  const rows=b.DOCS.map(d=>{const t=calc(d);const c=d.cliente||{};return {t:d.tipo,n:d.num||"",f:d.fecha||today(),c:c.nombre||"",tel:c.tel||"",dir:c.dir||"",tot:Math.round(t.total),pag:Math.round(t.pag),sal:Math.round(t.saldo),e:d.estado||"",ref:(d.ref||"").slice(0,80),it:((d.items||[])[0]||{}).d?String(d.items[0].d).slice(0,70):""}});
+  const S=b.S||{};
+  const clients=(b.CLI||[]).map(c=>({n:c.nombre||"",tel:c.tel||"",dir:c.dir||""})).filter(c=>c.n);
+  rows.forEach(r=>{if(r.c&&!clients.some(c=>c.n.toLowerCase()===r.c.toLowerCase()))clients.push({n:r.c,tel:r.tel,dir:r.dir})});
+  const CH=500,chunks=[];for(let i=0;i<rows.length;i+=CH)chunks.push(rows.slice(i,i+CH));
+  const old=D.vortice.filter(x=>/^d\d+$/.test(x.id)).map(x=>x.id);
+  await put("vortice",{id:"info",fecha:new Date().toISOString(),copia:b.fecha||"",empresa:S.empresa||"",tel:S.tel||"",ciudad:S.ciudad||"",pago:S.pago||"",nDocs:rows.length,clients:clients.slice(0,1500)});
+  for(let i=0;i<chunks.length;i++)await put("vortice",{id:"d"+i,rows:chunks[i]});
+  for(const id of old)if(+id.slice(1)>=chunks.length)await del("vortice",id);
+  if(S.empresa&&!D.cfg.empresa){D.cfg.empresa=S.empresa;D.cfg.tel=D.cfg.tel||S.tel||"";saveCfg()}
+  toast(`Vortice sincronizado: ${rows.length} documentos ✔`);render();
+}
+function allClients(){
+  const m=new Map();
+  vClients().forEach(c=>m.set(c.n.toLowerCase(),c));
+  D.trabajos.forEach(j=>{if(j.cliente&&!m.has(j.cliente.toLowerCase()))m.set(j.cliente.toLowerCase(),{n:j.cliente,tel:j.tel||"",dir:j.dir||""})});
+  return [...m.values()].sort((a,b)=>a.n.localeCompare(b.n));
+}
+
+/* ================= finanzas: cálculos ================= */
+function incluirV(){return D.cfg.incluirV!==false}
+function monthData(k){
+  const ms=D.movs.filter(m=>mk(m.fecha||"")===k);
+  let ing=ms.filter(m=>m.tipo==="ingreso").reduce((a,m)=>a+num(m.monto),0);
+  const vs=incluirV()?vSales().filter(s=>mk(s.f)===k):[];
+  const ingV=vs.reduce((a,s)=>a+s.monto,0);
+  const costo=ms.filter(m=>m.tipo==="egreso"&&clase(m.cat)==="costo").reduce((a,m)=>a+num(m.monto),0);
+  const gasto=ms.filter(m=>m.tipo==="egreso"&&clase(m.cat)!=="costo").reduce((a,m)=>a+num(m.monto),0);
+  ing+=ingV;
+  return {k,ing,ingV,costo,gasto,egr:costo+gasto,util:ing-costo-gasto,margen:ing?((ing-costo-gasto)/ing*100):0,ms,vs};
+}
+function projection(k,esc){
+  // usa los meses cerrados con movimientos antes del mes actual
+  const cur=mk(today());const hist=[];
+  for(let i=1;i<=6;i++){const m=mkAdd(cur,-i);const d=monthData(m);if(d.ing||d.egr)hist.unshift(d)}
+  const fac=esc==="cons"?0.85:esc==="opt"?1.15:1;
+  if(hist.length<2)return {ok:false,hist,rows:[]};
+  const fit=key=>{const ys=hist.map(h=>h[key]);const n=ys.length;const avg=ys.reduce((a,b)=>a+b,0)/n;
+    if(n<3)return i=>avg;
+    const xs=ys.map((_,i)=>i);const mx=(n-1)/2;let sxy=0,sxx=0;xs.forEach((x,i)=>{sxy+=(x-mx)*(ys[i]-avg);sxx+=(x-mx)**2});const b=sxx?sxy/sxx:0;
+    return i=>Math.max(0,0.5*avg+0.5*(avg+b*(n-1+i-mx)))};
+  const fi=fit("ing"),fe=fit("egr");
+  const rows=[0,1,2].map(i=>{const m=mkAdd(cur,i);const ing=fi(i+1)*fac,egr=fe(i+1);return {k:m,ing,egr,util:ing-egr}});
+  return {ok:true,hist,rows};
+}
+
+/* ================= navegación ================= */
+const TABS=["inicio","asistente","agenda","finanzas","facturas"];
+let TAB=TABS.includes(location.hash.slice(1))?location.hash.slice(1):"inicio";
+let SUB=null; // vista interna: {kind:"chat",id}
+const UI={eqFilter:"todos",agDay:today(),agWeek:null,agMode:"dia",finMonth:mk(today()),finSeg:"resumen",esc:"normal"};
+$("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(b)go(b.dataset.tab)});
+window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(TABS.includes(h)&&h!==TAB){TAB=h;SUB=null;render()}});
+function go(t,sub){if(busy&&ctl)ctl.abort();TAB=t;SUB=sub||null;try{if(location.hash.slice(1)!==t)location.hash=t}catch(e){}render();window.scrollTo(0,0)}
+$("#hBack").onclick=()=>{SUB=null;render();window.scrollTo(0,0)};
+function paintHead(){
+  const emp=D.cfg.empresa||"Vortice E&C";
+  $("#hLogo").textContent=(emp.trim()[0]||"V").toUpperCase();
+  if(!SUB){$("#hTitle").innerHTML=`${esc(TITLES[TAB])}<small id="hSub">${esc(emp)}</small>`;$("#hBack").hidden=true;$("#hLogo").hidden=false}
+}
+const TITLES={inicio:"Vortice Taller",asistente:"Asistente técnico",agenda:"Agenda de trabajos",finanzas:"Finanzas",facturas:"Facturas · Vortice Docs"};
+function render(){
+  document.querySelectorAll("#tabs [data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab===TAB));
+  const chat=SUB&&SUB.kind==="chat";
+  $("#tabs").hidden=!!chat;$("#composer").hidden=!chat;
+  paintHead();
+  const V=$("#view");
+  if(chat)return vChat(V);
+  ({inicio:vInicio,asistente:vAsistente,agenda:vAgenda,finanzas:vFinanzas,facturas:vFacturas})[TAB](V);
+}
+
+/* ================= hoja inferior (formularios) ================= */
+let sheetOpen=false;
+function sheet(title,html,mount){
+  sheetOpen=true;
+  const root=$("#sheetRoot");
+  root.innerHTML=`<div class="sheet" id="sh"><div class="pan" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="hd"><h2>${esc(title)}</h2><button class="x" type="button" data-close aria-label="Cerrar">✕</button></div>${html}</div></div>`;
+  const sh=$("#sh");
+  sh.addEventListener("click",e=>{if(e.target===sh||e.target.closest("[data-close]"))closeSheet()});
+  mount&&mount(sh.querySelector(".pan"));
+}
+function closeSheet(){$("#sheetRoot").innerHTML="";sheetOpen=false;render()}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&sheetOpen)closeSheet()});
+
+/* ================= acciones globales ================= */
+const ACT={
+  settings:()=>vSettings(),
+  newCons:b=>newConsulta(b&&b.dataset.eq),
+  openCons:b=>go("asistente",{kind:"chat",id:b.dataset.id}),
+  newJob:b=>jobForm(null,b&&b.dataset.pre?JSON.parse(b.dataset.pre):null),
+  editJob:b=>jobForm(D.trabajos.find(j=>j.id===b.dataset.id)),
+  notify:b=>notifySheet(D.trabajos.find(j=>j.id===b.dataset.id)),
+  jobState:b=>{const j=D.trabajos.find(x=>x.id===b.dataset.id);if(!j)return;const order=["programado","confirmado","en_curso","terminado"];const i=order.indexOf(j.estado);j.estado=order[Math.min(i+1,order.length-1)];put("trabajos",j);toast("Estado: "+estN(j.estado));render()},
+  newMov:b=>movForm(null,b.dataset.t),
+  editMov:b=>movForm(D.movs.find(m=>m.id===b.dataset.id)),
+  importV:()=>pickFile(".json,application/json",importVortice),
+  cobrar:b=>{const r=vRows().find(x=>x.n===b.dataset.n);if(r)cobroSheet(r)}
+};
+document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(!b)return;const f=ACT[b.dataset.act];if(f){e.preventDefault();f(b,e)}});
+function pickFile(accept,cb){const i=$("#fileIn");i.accept=accept;i.multiple=false;i.value="";i.onchange=()=>i.files[0]&&cb(i.files[0]);i.click()}
+
+/* ================= INICIO ================= */
+function vInicio(V){
+  const t=today(),m=monthData(mk(t));
+  const hoy=D.trabajos.filter(j=>j.fecha===t&&j.estado!=="cancelado").sort((a,b)=>(a.hora||"").localeCompare(b.hora||""));
+  const prox=D.trabajos.filter(j=>j.fecha>t&&j.estado!=="cancelado").sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora)).slice(0,3);
+  const cob=vCobrar().reduce((a,r)=>a+r.sal,0);
+  const cons=[...D.consultas].sort((a,b)=>(b.upd||0)-(a.upd||0)).slice(0,3);
+  const d=new Date();const sal=d.getHours()<12?"Buenos días":d.getHours()<19?"Buenas tardes":"Buenas noches";
+  V.innerHTML=`<div class="view">
+  <div class="hero"><div class="muted" style="text-transform:capitalize">${esc(longD(t))}</div><h2 style="margin-top:2px">${sal}${D.cfg.tecnico?", "+esc(D.cfg.tecnico.split(" ")[0]):""} 👋</h2>
+   <div class="muted" style="margin-top:4px">${hoy.length?`Tienes <b style="color:var(--text)">${hoy.length} trabajo${hoy.length>1?"s":""}</b> hoy.`:"No tienes trabajos agendados hoy."}</div></div>
+  <div class="quick">
+   <button type="button" data-act="newCons">🧠<span>Consultar falla</span></button>
+   <button type="button" data-act="newJob">📅<span>Agendar trabajo</span></button>
+   <button type="button" data-act="newMov" data-t="egreso">💸<span>Registrar gasto</span></button>
+   <button type="button" data-act="newMov" data-t="ingreso">💵<span>Registrar ingreso</span></button>
+  </div>
+  <h3>${esc(mkName(mk(t)))}</h3>
+  <div class="kpis">
+   <div class="kpi"><small>Ingresos</small><b>${money(m.ing)}</b></div>
+   <div class="kpi"><small>Costos + gastos</small><b>${money(m.egr)}</b></div>
+   <div class="kpi"><small>Utilidad</small><b class="${m.util>=0?"up":"down"}">${money(m.util)}</b></div>
+   <div class="kpi"><small>Por cobrar (Vortice)</small><b style="color:var(--warn)">${money(cob)}</b></div>
+  </div>
+  <h3>Hoy</h3>
+  ${hoy.length?`<div class="list">${hoy.map(jobCard).join("")}</div>`:`<div class="empty"><b>Día libre en la agenda</b>Agenda un trabajo y avísale al cliente por WhatsApp.<div style="margin-top:10px"><button class="btn p sm" type="button" data-act="newJob">＋ Agendar trabajo</button></div></div>`}
+  ${prox.length?`<h3>Próximos</h3><div class="list">${prox.map(j=>`<button class="row" type="button" data-act="editJob" data-id="${esc(j.id)}"><span class="em">${eq(j.equipo).i}</span><span class="tx"><b>${esc(j.cliente||"Sin cliente")}</b><small>${esc(longD(j.fecha))} · ${esc(hora12(j.hora))} · ${esc(j.servicio||"")}</small></span><span class="pill ${esc(j.estado)}">${esc(estN(j.estado))}</span></button>`).join("")}</div>`:""}
+  <h3>Consultas recientes</h3>
+  ${cons.length?`<div class="list">${cons.map(consRow).join("")}</div>`:`<div class="empty"><b>Aún no hay consultas</b>Pregúntale al asistente por cualquier falla, código o cálculo.</div>`}
+  </div>`;
+}
+
+/* ================= ASISTENTE ================= */
+function consRow(c){const e=eq(c.equipo),t=tc(c.tipo);const n=(c.turns||[]).filter(x=>x.role==="user").length;
+  return `<button class="row" type="button" data-act="openCons" data-id="${esc(c.id)}"><span class="em">${e.i}</span><span class="tx"><b>${esc(c.titulo||"Consulta")}</b><small>${t.i} ${esc(t.n)} · ${esc(e.n)}</small></span><span class="rt"><small>${esc(fmtD(isoOf(new Date(c.upd||Date.now()))))}</small><small>${n} pregunta${n===1?"":"s"}</small></span></button>`}
+function vAsistente(V){
+  const all=[...D.consultas].sort((a,b)=>(b.upd||0)-(a.upd||0));
+  const counts={};all.forEach(c=>counts[c.equipo]=(counts[c.equipo]||0)+1);
+  const f=UI.eqFilter;const tf=UI.tcFilter||"todos";
+  const list=all.filter(c=>(f==="todos"||c.equipo===f)&&(tf==="todos"||c.tipo===tf));
+  V.innerHTML=`<div class="view">
+   <div class="hero"><h2>¿Qué equipo vas a revisar?</h2><div class="muted" style="margin-top:4px">Elige el equipo y te respondo con diagnóstico, pruebas con valores, opciones de reparación y fuentes.</div>
+   <div class="tiles" style="margin-top:12px">${EQ.map(e=>`<button class="tile" type="button" data-act="newCons" data-eq="${e.id}"><i>${e.i}</i><span>${esc(e.n)}</span></button>`).join("")}</div></div>
+   <h3>Mis consultas</h3>
+   <div class="chips" id="eqf"><button class="chip ${f==="todos"?"on":""}" data-f="todos" type="button">Todos<em>${all.length}</em></button>${EQ.filter(e=>counts[e.id]).map(e=>`<button class="chip ${f===e.id?"on":""}" data-f="${e.id}" type="button">${e.i} ${esc(e.n)}<em>${counts[e.id]}</em></button>`).join("")}</div>
+   <div class="chips" id="tcf"><button class="chip ${tf==="todos"?"on":""}" data-f="todos" type="button">Todo tipo</button>${TC.map(t=>`<button class="chip ${tf===t.id?"on":""}" data-f="${t.id}" type="button">${t.i} ${esc(t.n)}</button>`).join("")}</div>
+   ${list.length?`<div class="list">${list.map(consRow).join("")}</div>`:`<div class="empty"><b>${all.length?"Nada con ese filtro":"Sin consultas todavía"}</b>${all.length?"Cambia el filtro de equipo o tipo.":"Toca un equipo arriba para empezar."}</div>`}
+  </div>`;
+  $("#eqf").onclick=e=>{const b=e.target.closest("[data-f]");if(b){UI.eqFilter=b.dataset.f;render()}};
+  $("#tcf").onclick=e=>{const b=e.target.closest("[data-f]");if(b){UI.tcFilter=b.dataset.f;render()}};
+}
+function newConsulta(eqId){
+  const st={eq:eqId||"",tc:"falla"};
+  const draw=pan=>{
+    pan.querySelector("#ncBody").innerHTML=`
+     <h3>1 · Equipo</h3><div class="tiles">${EQ.map(e=>`<button class="tile ${st.eq===e.id?"on":""}" type="button" data-eq="${e.id}"><i>${e.i}</i><span>${esc(e.n)}</span></button>`).join("")}</div>
+     <h3>2 · Tipo de consulta</h3><div class="chips" style="flex-wrap:wrap">${TC.map(t=>`<button class="chip ${st.tc===t.id?"on":""}" type="button" data-tc="${t.id}">${t.i} ${esc(t.n)}</button>`).join("")}</div>`;
+  };
+  sheet("Nueva consulta",`<div id="ncBody" class="fg"></div>
+   <h3>3 · Datos del equipo <span style="text-transform:none;letter-spacing:0;font-weight:600">(opcional)</span></h3>
+   <div class="fg2"><label class="f">Marca y modelo<input id="ncMod" placeholder="Ej: LG Dual Inverter 12k"></label><label class="f">Refrigerante o gas<input id="ncGas" placeholder="Ej: R-410A · GLP"></label></div>
+   <div class="fg2"><label class="f">Alimentación<input id="ncVol" placeholder="Ej: 220 V 1F"></label><label class="f">Mediciones<input id="ncMed" placeholder="Ej: succión 120 psi, 6.2 A"></label></div>
+   <label class="f">Pregunta<textarea id="ncQ" placeholder="¿Qué hace el equipo? ¿Desde cuándo? ¿Qué ya revisaste?"></textarea></label>
+   <button class="btn p w" type="button" id="ncGo">Preguntar al asistente</button>`,pan=>{
+    draw(pan);
+    pan.querySelector("#ncBody").onclick=e=>{const a=e.target.closest("[data-eq]"),b=e.target.closest("[data-tc]");if(a)st.eq=a.dataset.eq;if(b)st.tc=b.dataset.tc;if(a||b)draw(pan)};
+    pan.querySelector("#ncGo").onclick=()=>{
+      const q=pan.querySelector("#ncQ").value.trim();
+      if(!st.eq){toast("Elige el equipo");return}
+      if(!q){toast("Escribe la pregunta");pan.querySelector("#ncQ").focus();return}
+      const datos={modelo:pan.querySelector("#ncMod").value.trim(),gas:pan.querySelector("#ncGas").value.trim(),volt:pan.querySelector("#ncVol").value.trim(),med:pan.querySelector("#ncMed").value.trim()};
+      const c={id:uid(),equipo:st.eq,tipo:st.tc,titulo:q.slice(0,70),datos,turns:[],fecha:Date.now()};
+      put("consultas",c);sheetOpen=false;$("#sheetRoot").innerHTML="";
+      go("asistente",{kind:"chat",id:c.id});
+      $("#q").value=q;ask();
+    };
+  });
+}
+
+/* chat */
+const RULES=`Eres el asistente técnico de un taller colombiano de refrigeración comercial e industrial, aire acondicionado, hornos de panadería (rotativos, atmosféricos, de pisos, tótem, gaveteros, pandeboneros, fermentadoras), soldadura y estructuras metálicas, y electricidad. Respondes a un técnico profesional como lo haría un técnico senior con 30 años de campo y formación de ingeniería.
+
+Contexto: Colombia, 60 Hz, tensiones 120, 208, 220/240 y 440/480 V; gas natural y GLP. Normas de referencia cuando apliquen: RETIE, NTC 2050, Resolución 90902 de 2013 (instalaciones de gas), NTC 2505, ASHRAE, AWS D1.1/D1.3. Da unidades métricas y, cuando ayude, las de campo (psi, °F, BTU/h, TR, AWG).
 
 Cómo respondes:
-- En español, directo y elaborado a la vez: cada frase aporta algo aplicable. Nada de relleno ni frases de cortesía.
-- Para una falla usa estas secciones con títulos "##":
-  ## Diagnóstico rápido — la causa más probable en 2-3 líneas y por qué.
-  ## Causas probables — ordenadas de más a menos probable; cada una con la señal que la confirma o la descarta.
-  ## Pruebas paso a paso — qué medir, con qué instrumento, dónde, y el valor esperado o rango normal. Usa tablas cuando compares valores.
-  ## Solución y opciones — opciones reales de reparación (repuesto original, equivalente, reparación provisional) con ventajas, riesgos y un orden de costo relativo.
-  ## Seguridad — solo los riesgos que aplican a este trabajo (gas, refrigerante inflamable, tensión, presión, humos de soldadura).
-  ## Fuentes — referencias reales y verificables: manuales o boletines del fabricante, normas, tablas P-T, guías técnicas (Copeland/Emerson, Danfoss, Sporlan, Tecumseh, Embraco, Bitzer, Honeywell, Lincoln Electric, Miller, ASHRAE, RSES, etc.).
-- Para preguntas de cálculo, selección o procedimiento, adapta la estructura: resultado primero, luego el procedimiento con fórmulas y números, luego fuentes.
-- Si faltan datos que cambian el diagnóstico, da igualmente la mejor ruta con lo que hay y termina con "## Para afinar" con máximo 3 preguntas concretas (qué medir o qué dato de la placa necesitas).
-- Exactitud ante todo: no inventes códigos de error, valores de placa, números de parte, títulos de documentos ni enlaces. Si un código de error o valor depende de la marca o el modelo y no estás seguro, dilo claramente e indica dónde verificarlo (manual de servicio, diagrama pegado en el equipo, sitio del fabricante). Distingue lo que es dato de norma o fabricante de lo que es práctica de campo.
-- Si te envían fotos, describe primero lo que lees en ellas (placa, código, cableado, estado de piezas) y úsalo en el diagnóstico.`;
-
-const $=id=>document.getElementById(id);
-const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-
-let area=store.get("mt.area","general");
-let deep=store.get("mt.deep",false);
-let turns=store.get("mt.turns",[]); // {role, content, display?, area?, photos?}
-let pending=[]; // File[]
-let sample=null, ctl=null, busy=false, canImages=false;
-
-// ---------- areas ----------
-const areasEl=$("areas");
-AREAS.forEach(a=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=a.name;b.dataset.id=a.id;b.setAttribute("aria-pressed",String(a.id===area));b.onclick=()=>{area=a.id;store.set("mt.area",area);[...areasEl.children].forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.id===area)))};areasEl.append(b)});
-
-// ---------- examples ----------
-EXAMPLES.forEach(e=>{const b=document.createElement("button");b.type="button";b.className="ex";const t=document.createElement("b");t.textContent=AREAS.find(x=>x.id===e.a).name;const s=document.createElement("span");s.textContent=e.t;b.append(t,s);b.onclick=()=>{area=e.a;store.set("mt.area",area);[...areasEl.children].forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.id===area)));$("q").value=e.t;autosize();$("q").focus()};$("examples").append(b)});
-
-// ---------- ficha ----------
-const FIELDS=[["fEquipo","Equipo"],["fGas","Refrigerante/gas"],["fVolt","Alimentación"],["fLugar","Ubicación/condiciones"],["fMed","Mediciones"]];
-const ficha=store.get("mt.ficha",{});
-FIELDS.forEach(([id])=>{const el=$(id);el.value=ficha[id]||"";el.addEventListener("input",()=>{ficha[id]=el.value;store.set("mt.ficha",ficha);fichaState()})});
-function fichaText(){return FIELDS.map(([id,l])=>(ficha[id]||"").trim()?`- ${l}: ${ficha[id].trim()}`:"").filter(Boolean).join("\n")}
-function fichaState(){const n=FIELDS.filter(([id])=>(ficha[id]||"").trim()).length;$("fichaState").textContent=n?`${n} dato${n>1?"s":""} cargado${n>1?"s":""} · se envían con cada pregunta`:"opcional · se envían con cada pregunta"}
-fichaState();
-
-// ---------- deep toggle ----------
-const deepBtn=$("deepBtn");
-function paintDeep(){deepBtn.setAttribute("aria-pressed",String(deep))}
-deepBtn.onclick=()=>{deep=!deep;store.set("mt.deep",deep);paintDeep()};paintDeep();
-
-// ---------- markdown ----------
+- En español, directo y elaborado: cada frase aporta algo aplicable. Sin saludos ni relleno.
+- Para fallas o códigos usa estas secciones con "##":
+  ## Diagnóstico rápido (causa más probable en 2-3 líneas y por qué)
+  ## Causas probables (de más a menos probable, con la señal que la confirma o descarta)
+  ## Pruebas paso a paso (qué medir, con qué instrumento, dónde y el valor normal; usa tablas para comparar valores)
+  ## Solución y opciones (repuesto original, equivalente o arreglo provisional, con ventajas, riesgos y costo relativo)
+  ## Seguridad (solo lo que aplica: gas, refrigerante inflamable, tensión, presión, humos)
+  ## Fuentes (manuales o boletines del fabricante, normas, tablas P-T, guías técnicas reales: Copeland/Emerson, Danfoss, Sporlan, Tecumseh, Embraco, Bitzer, Honeywell, Carrier, LG, Samsung, Lincoln Electric, Miller, ASHRAE, RSES…)
+- Para instalación, mantenimiento, cálculo, repuestos o normas, adapta: resultado o lista de pasos primero, luego procedimiento con números y fórmulas, luego fuentes.
+- Si faltan datos que cambian el diagnóstico, da igual la mejor ruta y cierra con "## Para afinar" con máximo 3 preguntas concretas.
+- Exactitud: no inventes códigos de error, valores de placa, números de parte, títulos de documentos ni enlaces. Si un dato depende de la marca o el modelo y no estás seguro, dilo e indica dónde verificarlo. Distingue dato de fabricante o norma de práctica de campo.
+- Si hay fotos, primero di lo que lees en ellas (placa, código, cableado, estado) y úsalo.`;
+let sample=null,canImages=false,ctl=null,busy=false,pending=[],deep=LS.get("deep",false);
 function renderMd(el,text){
   if(window.marked&&window.DOMPurify){
-    const html=DOMPurify.sanitize(marked.parse(text,{gfm:true,breaks:false}),{FORBID_TAGS:["style","img","iframe","form"],FORBID_ATTR:["style"]});
-    el.innerHTML=html;
-    el.querySelectorAll("table").forEach(t=>{if(!t.parentElement.classList.contains("tbl")){const w=document.createElement("div");w.className="tbl";t.replaceWith(w);w.append(t)}});
-    el.querySelectorAll("a").forEach(a=>{const h=a.getAttribute("href")||"";if(!/^https:\/\//i.test(h)){a.replaceWith(document.createTextNode(a.textContent))}else{a.target="_blank";a.rel="noopener"}});
+    el.innerHTML=DOMPurify.sanitize(marked.parse(text||"",{gfm:true}),{FORBID_TAGS:["style","img","iframe","form","input"],FORBID_ATTR:["style"]});
+    el.querySelectorAll("table").forEach(t=>{const w=document.createElement("div");w.className="tbl";t.replaceWith(w);w.append(t)});
+    el.querySelectorAll("a").forEach(a=>{const h=a.getAttribute("href")||"";if(!/^https:\/\//i.test(h))a.replaceWith(document.createTextNode(a.textContent));else{a.target="_blank";a.rel="noopener"}});
   }else{el.textContent=text;el.style.whiteSpace="pre-wrap"}
 }
-
-// ---------- thread ----------
-const thread=$("thread");
-function areaName(id){return (AREAS.find(a=>a.id===id)||AREAS[0]).name}
-function addUser(t){
-  const d=document.createElement("div");d.className="msg user";d.textContent=t.display||t.content;
-  const meta=[];if(t.area&&t.area!=="general")meta.push(areaName(t.area));if(t.photos)meta.push(`${t.photos} foto${t.photos>1?"s":""}`);if(t.ficha)meta.push("con datos del equipo");
-  if(meta.length){const m=document.createElement("div");m.className="meta";m.textContent=meta.join(" · ");d.append(m)}
-  thread.append(d);return d;
+function vChat(V){
+  const c=D.consultas.find(x=>x.id===SUB.id);
+  if(!c){SUB=null;return render()}
+  const e=eq(c.equipo),t=tc(c.tipo);
+  $("#hBack").hidden=false;$("#hLogo").hidden=true;
+  $("#hTitle").innerHTML=`${esc(c.titulo||"Consulta")}<small>${e.i} ${esc(e.n)}</small>`;
+  const dat=c.datos||{};const dl=[dat.modelo,dat.gas,dat.volt,dat.med].filter(Boolean);
+  V.innerHTML=`<div class="view" style="padding-bottom:120px">
+   <div class="chathead"><span class="pill">${e.i} ${esc(e.n)}</span><span class="pill confirmado">${t.i} ${esc(t.n)}</span>${dl.length?`<span class="muted">${esc(dl.join(" · "))}</span>`:""}
+    <span style="flex:1"></span><button class="btn sm d" type="button" id="delCons">Borrar</button></div>
+   <div class="thread" id="thread"></div></div>`;
+  const th=$("#thread");
+  (c.turns||[]).forEach(x=>x.role==="user"?th.append(userBubble(x)):th.append(botBubble(x.content)));
+  if(!(c.turns||[]).length&&!busy)th.innerHTML=`<div class="empty"><b>Escribe tu pregunta abajo</b>Describe síntomas, lo que mediste y lo que ya cambiaste.</div>`;
+  $("#delCons").onclick=()=>{const b=$("#delCons");if(b.dataset.sure){del("consultas",c.id);toast("Consulta borrada");SUB=null;render()}else{b.dataset.sure="1";b.textContent="¿Seguro? Toca otra vez"}};
+  paintDeep();
 }
-function addBot(text){
+function userBubble(t){const d=document.createElement("div");d.className="msg user";d.textContent=t.display||t.content;if(t.photos){const s=document.createElement("small");s.textContent=`📷 ${t.photos} foto${t.photos>1?"s":""}`;d.append(s)}return d}
+function botBubble(text){
   const d=document.createElement("article");d.className="msg bot";
-  const tag=document.createElement("div");tag.className="tag";const lab=document.createElement("span");lab.textContent="Maestro de Taller";
-  const tools=document.createElement("div");tools.className="tools";
-  const copy=document.createElement("button");copy.type="button";copy.textContent="Copiar";
-  copy.onclick=async()=>{try{await navigator.clipboard.writeText(d._text||"");copy.textContent="Copiado"}catch(e){const r=document.createRange();r.selectNodeContents(body);const s=getSelection();s.removeAllRanges();s.addRange(r);copy.textContent="Seleccionado"}setTimeout(()=>copy.textContent="Copiar",1600)};
-  tools.append(copy);tag.append(lab,tools);
-  const body=document.createElement("div");body.className="md";
-  d.append(tag,body);thread.append(d);
+  d.innerHTML=`<div class="tag"><span>Asistente técnico</span><button class="btn sm" type="button">Copiar</button></div><div class="md"></div>`;
+  const body=d.querySelector(".md");
+  d.querySelector("button").onclick=()=>copyText(d._text||"");
   d._set=t=>{d._text=t;renderMd(body,t)};
-  d._thinking=()=>{body.innerHTML="";const p=document.createElement("div");p.className="thinking";p.textContent=deep?"Analizando a fondo":"Analizando";body.append(p)};
-  d._note=t=>{let n=d.querySelector(".note");if(!n){n=document.createElement("div");n.className="note";d.append(n)}n.textContent=t};
-  if(text!=null)d._set(text);
-  return d;
+  d._thinking=()=>{body.innerHTML=`<div class="thinking">${deep?"Analizando a fondo":"Analizando"}</div>`};
+  d._note=t=>{const n=document.createElement("div");n.className="note";n.textContent=t;d.append(n)};
+  if(text!=null)d._set(text);return d;
 }
-function renderAll(){thread.innerHTML="";turns.forEach(t=>t.role==="user"?addUser(t):addBot(t.content));$("intro").hidden=turns.length>0}
-renderAll();
-
-$("newChat").onclick=()=>{if(busy&&ctl)ctl.abort();turns=[];store.set("mt.turns",turns);renderAll();window.scrollTo({top:0});setStatus("")};
-
-// ---------- composer ----------
-const q=$("q"),send=$("send");
-function autosize(){q.style.height="auto";q.style.height=Math.min(q.scrollHeight,180)+"px"}
-q.addEventListener("input",()=>{autosize();store.set("mt.draft",q.value)});
-q.value=store.get("mt.draft","");autosize();
+const q=$("#q");
+function autosize(){q.style.height="auto";q.style.height=Math.min(q.scrollHeight,170)+"px"}
+q.addEventListener("input",autosize);
 q.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!matchMedia("(pointer:coarse)").matches){e.preventDefault();ask()}});
-function setStatus(t){$("status").textContent=t}
-
-// photos
-const photo=$("photo"),thumbs=$("thumbs");
-$("photoBtn").onclick=()=>photo.click();
-photo.onchange=()=>{pending=pending.concat([...photo.files]).slice(0,4);photo.value="";paintThumbs()};
-function paintThumbs(){thumbs.innerHTML="";thumbs.hidden=!pending.length;pending.forEach((f,i)=>{const w=document.createElement("div");w.className="thumb";const im=document.createElement("img");im.alt="Foto adjunta";im.src=URL.createObjectURL(f);const x=document.createElement("button");x.type="button";x.textContent="×";x.setAttribute("aria-label","Quitar foto");x.onclick=()=>{pending.splice(i,1);paintThumbs()};w.append(im,x);thumbs.append(w)})}
-
-const ERR={
-  not_granted:"No se autorizó el uso de Claude en esta página. Ábrela de nuevo y acepta el permiso para poder preguntar.",
-  sampling_disabled:"Claude no está disponible para esta cuenta.",
-  rate_limited:"Llegaste al límite de consultas por ahora. Espera unos minutos e intenta de nuevo.",
-  session_expired:"Tu sesión de Claude expiró. Vuelve a iniciar sesión y recarga.",
-  image_rejected:"Esa foto no se pudo usar. Prueba con una JPG o PNG más pequeña.",
-  images_unavailable:"Aquí no se pueden enviar fotos. Escribe lo que dice la placa o el código.",
-  refused:"Claude no respondió esta consulta. Reformúlala con más detalle técnico.",
-  empty_completion:"No llegó respuesta. Intenta de nuevo con la pregunta más concreta.",
-  prompt_too_large:"La conversación es muy larga. Empieza una nueva consulta.",
-  upstream_error:"Se cortó la conexión. Toca Preguntar de nuevo."
-};
-
+function paintDeep(){$("#deepBtn").classList.toggle("on",deep);$("#deepBtn").textContent=deep?"🔬 A fondo: sí":"🔬 A fondo"}
+$("#deepBtn").onclick=()=>{deep=!deep;LS.set("deep",deep);paintDeep();toast(deep?"Análisis a fondo: más preciso, tarda más":"Respuesta normal")};
+$("#sendBtn").onclick=()=>ask();
+const photoIn=document.createElement("input");photoIn.type="file";photoIn.accept="image/*";photoIn.multiple=true;
+$("#photoBtn").onclick=()=>photoIn.click();
+photoIn.onchange=()=>{pending=pending.concat([...photoIn.files]).slice(0,4);photoIn.value="";paintThumbs()};
+function paintThumbs(){const t=$("#thumbs");t.innerHTML="";t.hidden=!pending.length;pending.forEach((f,i)=>{const w=document.createElement("div");w.className="thumb";const im=document.createElement("img");im.alt="Foto";im.src=URL.createObjectURL(f);const x=document.createElement("button");x.type="button";x.textContent="×";x.setAttribute("aria-label","Quitar foto");x.onclick=()=>{pending.splice(i,1);paintThumbs()};w.append(im,x);t.append(w)})}
+const SERR={not_granted:"No se autorizó el uso de Claude en esta página. Recárgala y acepta el permiso.",sampling_disabled:"Claude no está disponible para esta cuenta.",rate_limited:"Llegaste al límite de consultas por ahora. Intenta en unos minutos.",session_expired:"Tu sesión expiró. Inicia sesión de nuevo y recarga.",image_rejected:"Esa foto no se pudo usar. Prueba con otra JPG o PNG.",images_unavailable:"Aquí no se pueden enviar fotos; escribe lo que dice la placa.",refused:"No hubo respuesta para esa consulta. Reformúlala con más detalle técnico.",empty_completion:"No llegó respuesta. Intenta de nuevo.",prompt_too_large:"La consulta es muy larga. Empieza una nueva.",upstream_error:"Se cortó la conexión. Toca Preguntar de nuevo."};
 async function ask(){
   if(busy){ctl&&ctl.abort();return}
-  const text=q.value.trim();
-  if(!text&&!pending.length)return;
-  if(!sample){setStatus("El asistente se está conectando… intenta en un momento.");return}
-  const fichaT=fichaText();
-  const imgs=pending.slice();
+  if(!SUB||SUB.kind!=="chat")return;
+  const c=D.consultas.find(x=>x.id===SUB.id);if(!c)return;
+  const text=q.value.trim();if(!text&&!pending.length)return;
+  if(!sample){toast("Abre este enlace en claude.ai con tu cuenta para preguntar");return}
+  const imgs=pending.slice();const e=eq(c.equipo),t=tc(c.tipo);const dat=c.datos||{};
   let content="";
-  if(area!=="general")content+=`[Área: ${areaName(area)}]\n`;
-  if(fichaT)content+=`[Datos del equipo]\n${fichaT}\n\n`;
-  if(imgs.length)content+=`[Adjunto ${imgs.length} foto${imgs.length>1?"s":""} del equipo: léelas y úsalas en el diagnóstico]\n`;
-  content+=text||"Analiza las fotos adjuntas y dime qué ves y qué revisar.";
-  const ut={role:"user",content,display:text||"(fotos)",area,photos:imgs.length||0,ficha:!!fichaT};
-  turns.push(ut);$("intro").hidden=true;addUser(ut);
-  q.value="";store.set("mt.draft","");autosize();pending=[];paintThumbs();
-  const bot=addBot(null);bot._thinking();bot.scrollIntoView({behavior:"smooth",block:"start"});
-  busy=true;send.textContent="Detener";send.classList.add("stop");
-  setStatus(deep?"Análisis a fondo: puede tardar hasta un par de minutos.":"Pensando la respuesta…");
+  if(!(c.turns||[]).length){
+    content+=`[Equipo: ${e.n} — ${e.d}]\n[Tipo de consulta: ${t.n}]\n`;
+    const dl=[["Marca/modelo",dat.modelo],["Refrigerante/gas",dat.gas],["Alimentación",dat.volt],["Mediciones",dat.med]].filter(x=>x[1]);
+    if(dl.length)content+="[Datos del equipo]\n"+dl.map(x=>`- ${x[0]}: ${x[1]}`).join("\n")+"\n";
+    content+="\n";
+  }
+  if(imgs.length)content+=`[Adjunto ${imgs.length} foto(s): léelas y úsalas]\n`;
+  content+=text||"Analiza las fotos y dime qué ves y qué revisar.";
+  const ut={role:"user",content,display:text||"(fotos)",photos:imgs.length||0};
+  c.turns=(c.turns||[]).concat([ut]);
+  const th=$("#thread");if(th.querySelector(".empty"))th.innerHTML="";
+  th.append(userBubble(ut));
+  q.value="";autosize();pending=[];paintThumbs();
+  const bot=botBubble(null);bot._thinking();th.append(bot);bot.scrollIntoView({behavior:"smooth",block:"start"});
+  busy=true;$("#sendBtn").textContent="Detener";
   ctl=new AbortController();
-  const history=turns.slice(-14).map(t=>({role:t.role,content:t.content}));
-  while(history.length&&history[0].role!=="user")history.shift();
-  const input=[{role:"user",content:RULES},...history];
-  const opts={cache:false,signal:ctl.signal,modelTier:deep?"complex":"default",onText:({text})=>{bot._set(text)}};
+  const hist=c.turns.slice(-12).map(x=>({role:x.role,content:x.content}));while(hist.length&&hist[0].role!=="user")hist.shift();
+  const ctx=`${RULES}\n\nEsta conversación es sobre: ${e.n} (${e.d}). Tipo de consulta: ${t.n}.`;
+  const opts={cache:false,signal:ctl.signal,modelTier:deep?"complex":"default",onText:({text})=>bot._set(text)};
   if(imgs.length&&canImages)opts.images=imgs;
   try{
-    const r=await sample(input,opts);
-    bot._set(r.text);
-    turns.push({role:"assistant",content:r.text});
-    if(r.truncated)bot._note("La respuesta quedó cortada. Pide que continúe o divide la pregunta.");
-    setStatus("");
-  }catch(e){
-    const code=e&&e.code;
-    if(e&&e.text){bot._set(e.text);turns.push({role:"assistant",content:e.text})}
-    else bot._set("");
-    if(code==="cancelled"){setStatus("Detenido.");if(!e.text)bot.remove()}
-    else{bot._note(ERR[code]||ERR.upstream_error);setStatus("")}
-    if(code==="not_granted"||code==="sampling_disabled"){send.disabled=true}
+    const r=await sample([{role:"user",content:ctx},...hist],opts);
+    bot._set(r.text);c.turns.push({role:"assistant",content:r.text});
+    if(r.truncated)bot._note("La respuesta quedó cortada. Pide que continúe.");
+  }catch(err){
+    const code=err&&err.code;
+    if(err&&err.text){bot._set(err.text);c.turns.push({role:"assistant",content:err.text})}
+    if(code==="cancelled"){if(!err.text)bot.remove()}
+    else bot._note(SERR[code]||SERR.upstream_error);
   }finally{
-    busy=false;send.textContent="Preguntar";send.classList.remove("stop");
-    store.set("mt.turns",turns.slice(-30));
+    busy=false;$("#sendBtn").textContent="Preguntar";
+    c.turns=c.turns.slice(-16).map(x=>x.content&&x.content.length>24000?Object.assign({},x,{content:x.content.slice(0,24000)}):x);
+    put("consultas",c);
   }
 }
-send.onclick=ask;
-
-// ---------- capabilities ----------
 (async()=>{
   try{sample=await window.claude?.use("sample")}catch(e){sample=null}
-  if(!sample){setStatus("Abre este enlace en claude.ai con tu cuenta para hacer preguntas.");send.disabled=true;return}
-  try{const lim=await sample.limits();if(lim&&lim.images){canImages=true;$("photoBtn").hidden=false;photo.accept=lim.images.mediaTypes.join(",")}}catch(e){}
+  if(!sample){$("#sendBtn").disabled=true;return}
+  try{const l=await sample.limits();if(l&&l.images){canImages=true;$("#photoBtn").hidden=false}}catch(e){}
 })();
 (async()=>{
   let d=null;try{d=await window.claude?.use("dictation")}catch(e){}
-  if(!d)return;
-  const mic=$("micBtn"),lab=mic.querySelector("span");mic.hidden=false;let listening=false,base="";
-  d.onState(({state})=>{listening=state==="listening";mic.classList.toggle("rec",listening);lab.textContent=listening?"Detener":"Dictar"});
+  if(!d)return;const mic=$("#micBtn");mic.hidden=false;let on=false,base="";
+  d.onState(({state})=>{on=state==="listening";mic.classList.toggle("rec",on);mic.textContent=on?"⏹️ Detener":"🎙️ Dictar"});
   d.onPartial(({text})=>{q.value=(base?base+" ":"")+text;autosize()});
-  d.onFinal(({text})=>{base=(base?base+" ":"")+text;q.value=base;autosize();store.set("mt.draft",q.value)});
-  mic.onclick=()=>{if(listening){d.stop().catch(()=>{});return}base=q.value.trim();d.start().catch(err=>{if(err&&err.code==="not_granted")mic.hidden=true})};
+  d.onFinal(({text})=>{base=(base?base+" ":"")+text;q.value=base;autosize()});
+  mic.onclick=()=>{if(on){d.stop().catch(()=>{});return}base=q.value.trim();d.start().catch(err=>{if(err&&err.code==="not_granted")mic.hidden=true})};
 })();
+
+/* ================= AGENDA ================= */
+function weekStart(iso){const d=dOf(iso);const w=(d.getDay()+6)%7;d.setDate(d.getDate()-w);return isoOf(d)}
+function jobCard(j){
+  const e=eq(j.equipo);
+  return `<div class="job"><div class="h">${esc((hora12(j.hora)||"—").replace(/ (a|p)\. m\./,""))}<small>${esc(j.hora?(+j.hora.split(":")[0]>=12?"p. m.":"a. m."):"")}</small>${j.dur?`<small>${esc(j.dur)} h</small>`:""}</div>
+   <div class="b"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><b>${esc(j.cliente||"Sin cliente")}</b><span class="pill ${esc(j.estado)}">${esc(estN(j.estado))}</span></div>
+   <small>${e.i} ${esc(j.servicio||"")} · ${esc(e.n)}</small>
+   ${j.dir?`<small>📍 ${esc(j.dir)}</small>`:""}${j.tecnico?`<small>👨‍🔧 ${esc(j.tecnico)}</small>`:""}${j.valor?`<small>💵 ${money(j.valor)}</small>`:""}
+   ${j.notif&&j.notif.length?`<small style="color:var(--ok)">📲 Avisado: ${esc(j.notif[j.notif.length-1].tpl)} · ${esc(fmtD(j.notif[j.notif.length-1].f))}</small>`:""}
+   <div class="acts"><button class="btn wa sm" type="button" data-act="notify" data-id="${esc(j.id)}">📲 Avisar</button>
+   ${j.estado!=="terminado"&&j.estado!=="cancelado"?`<button class="btn sm" type="button" data-act="jobState" data-id="${esc(j.id)}">${j.estado==="programado"?"✔ Confirmar":j.estado==="confirmado"?"▶ Iniciar":"🏁 Terminar"}</button>`:""}
+   <button class="btn sm" type="button" data-act="editJob" data-id="${esc(j.id)}">✏️ Editar</button></div></div></div>`;
+}
+function vAgenda(V){
+  const ws=UI.agWeek||weekStart(UI.agDay);UI.agWeek=ws;
+  const days=[...Array(7)].map((_,i)=>addDays(ws,i));const t=today();
+  const act=D.trabajos.filter(j=>j.estado!=="cancelado");
+  const inWeek=D.trabajos.filter(j=>j.fecha>=ws&&j.fecha<=days[6]);
+  const cnt=s=>inWeek.filter(j=>j.estado===s).length;
+  let list;
+  if(UI.agMode==="dia")list=D.trabajos.filter(j=>j.fecha===UI.agDay).sort((a,b)=>(a.hora||"").localeCompare(b.hora||""));
+  else list=D.trabajos.filter(j=>j.fecha>=t&&j.estado!=="cancelado"&&j.estado!=="terminado").sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  const d0=dOf(ws),d6=dOf(days[6]);
+  V.innerHTML=`<div class="view">
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2 style="text-transform:capitalize">${esc(MES[d0.getMonth()])}${d0.getMonth()!==d6.getMonth()?" – "+esc(MES[d6.getMonth()]):""} ${d6.getFullYear()}</h2><button class="btn p sm" type="button" data-act="newJob" data-pre='${esc(JSON.stringify({fecha:UI.agDay}))}'>＋ Agendar</button></div>
+   <div class="week" id="week"><button class="nav" type="button" data-w="-1" aria-label="Semana anterior">‹</button>
+    ${days.map(d=>{const n=act.filter(j=>j.fecha===d).length;const dd=dOf(d);return `<button class="day ${d===UI.agDay&&UI.agMode==="dia"?"on":""} ${d===t?"today":""}" type="button" data-d="${d}"><small>${DIA[dd.getDay()].slice(0,3)}</small><b>${dd.getDate()}</b><span class="dots">${"<i></i>".repeat(Math.min(n,3))}</span></button>`}).join("")}
+    <button class="nav" type="button" data-w="1" aria-label="Semana siguiente">›</button></div>
+   <div class="kpis mini">
+    <div class="kpi"><small>Programados</small><b>${cnt("programado")}</b></div><div class="kpi"><small>Confirmados</small><b>${cnt("confirmado")}</b></div>
+    <div class="kpi"><small>En curso</small><b>${cnt("en_curso")}</b></div><div class="kpi"><small>Terminados</small><b>${cnt("terminado")}</b></div></div>
+   <div class="seg" id="agSeg"><button type="button" class="${UI.agMode==="dia"?"on":""}" data-m="dia">Día seleccionado</button><button type="button" class="${UI.agMode==="prox"?"on":""}" data-m="prox">Todos los pendientes</button></div>
+   ${UI.agMode==="dia"?`<h3 style="text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--text)">${esc(longD(UI.agDay).replace(/^./,c=>c.toUpperCase()))}${UI.agDay===t?" · Hoy":""}</h3>`:""}
+   ${list.length?`<div class="list">${list.map(j=>UI.agMode==="prox"?`<div class="muted" style="font-weight:700;text-transform:capitalize;margin-top:4px">${esc(longD(j.fecha))}</div>`+jobCard(j):jobCard(j)).join("")}</div>`:`<div class="empty"><b>${UI.agMode==="dia"?"Nada agendado este día":"No hay trabajos pendientes"}</b>Toca “＋ Agendar” para programar un trabajo y avisarle al cliente.</div>`}
+  </div>`;
+  $("#week").onclick=e=>{const w=e.target.closest("[data-w]"),d=e.target.closest("[data-d]");if(w){UI.agWeek=addDays(ws,7*+w.dataset.w);render()}if(d){UI.agDay=d.dataset.d;UI.agMode="dia";render()}};
+  $("#agSeg").onclick=e=>{const b=e.target.closest("[data-m]");if(b){UI.agMode=b.dataset.m;render()}};
+}
+function jobForm(j,pre){
+  const isNew=!j;j=j?JSON.parse(JSON.stringify(j)):Object.assign({id:uid(),cliente:"",tel:"",dir:"",fecha:UI.agDay||today(),hora:"08:00",dur:"2",equipo:"aire",servicio:SERV[0],tecnico:D.cfg.tecnico||"",valor:"",notas:"",estado:"programado",notif:[]},pre||{});
+  const cl=allClients();
+  sheet(isNew?"Agendar trabajo":"Editar trabajo",`<div class="fg">
+   <label class="f">Cliente<input id="jC" list="jCl" value="${esc(j.cliente)}" placeholder="Nombre del cliente o negocio" autocomplete="off"></label>
+   <datalist id="jCl">${cl.map(c=>`<option value="${esc(c.n)}"></option>`).join("")}</datalist>
+   <div class="fg2"><label class="f">WhatsApp / teléfono<input id="jT" inputmode="tel" value="${esc(j.tel)}" placeholder="300 123 4567"></label><label class="f">Estado<select id="jE">${EST.map(e=>`<option value="${e[0]}" ${e[0]===j.estado?"selected":""}>${e[1]}</option>`).join("")}</select></label></div>
+   <label class="f">Dirección<input id="jD" value="${esc(j.dir)}" placeholder="Barrio, dirección, punto de referencia"></label>
+   <div class="fg2"><label class="f">Fecha<input id="jF" type="date" value="${esc(j.fecha)}"></label><label class="f">Hora<input id="jH" type="time" value="${esc(j.hora)}"></label></div>
+   <div class="fg2"><label class="f">Equipo<select id="jQ">${EQ.map(e=>`<option value="${e.id}" ${e.id===j.equipo?"selected":""}>${e.i} ${esc(e.n)}</option>`).join("")}</select></label><label class="f">Servicio<select id="jS">${SERV.map(s=>`<option ${s===j.servicio?"selected":""}>${esc(s)}</option>`).join("")}</select></label></div>
+   <div class="fg2"><label class="f">Técnico<input id="jK" value="${esc(j.tecnico)}" placeholder="Quién va"></label><label class="f">Duración (horas)<input id="jR" inputmode="decimal" value="${esc(j.dur)}"></label></div>
+   <label class="f">Valor estimado<input id="jV" inputmode="numeric" value="${j.valor?esc(Math.round(num(j.valor)).toLocaleString("es-CO")):""}" placeholder="$ 0"></label>
+   <label class="f">Notas<textarea id="jN" placeholder="Qué llevar, falla reportada, acceso…">${esc(j.notas)}</textarea></label>
+   <button class="btn p w" type="button" id="jSave">${isNew?"Guardar y avisar al cliente":"Guardar cambios"}</button>
+   ${!isNew&&j.estado==="terminado"&&num(j.valor)>0&&!j.ingreso?`<button class="btn g w" type="button" id="jIng">💵 Registrar ${money(j.valor)} como ingreso</button>`:""}
+   ${!isNew?`<button class="btn d w" type="button" id="jDel">Eliminar trabajo</button>`:""}</div>`,pan=>{
+    const g=id=>pan.querySelector("#"+id);
+    g("jC").addEventListener("change",()=>{const c=cl.find(x=>x.n.toLowerCase()===g("jC").value.trim().toLowerCase());if(c){if(!g("jT").value)g("jT").value=c.tel||"";if(!g("jD").value)g("jD").value=c.dir||""}});
+    const read=()=>Object.assign(j,{cliente:g("jC").value.trim(),tel:g("jT").value.trim(),dir:g("jD").value.trim(),fecha:g("jF").value||today(),hora:g("jH").value,equipo:g("jQ").value,servicio:g("jS").value,tecnico:g("jK").value.trim(),dur:g("jR").value.trim(),valor:num(g("jV").value)||"",notas:g("jN").value.trim(),estado:g("jE").value});
+    g("jSave").onclick=()=>{read();if(!j.cliente){toast("Escribe el cliente");g("jC").focus();return}put("trabajos",j);UI.agDay=j.fecha;UI.agWeek=null;toast(isNew?"Trabajo agendado ✔":"Guardado ✔");if(isNew){sheetOpen=false;notifySheet(j,"conf")}else closeSheet()};
+    if(g("jIng"))g("jIng").onclick=()=>{read();const m={id:uid(),tipo:"ingreso",cat:j.servicio==="Instalación"?"Instalación":j.servicio==="Mantenimiento preventivo"?"Mantenimiento":"Servicio técnico",monto:num(j.valor),fecha:j.fecha,desc:`${j.servicio} · ${j.cliente}`};put("movs",m);j.ingreso=m.id;put("trabajos",j);toast("Ingreso registrado ✔");closeSheet()};
+    if(g("jDel"))g("jDel").onclick=()=>{const b=g("jDel");if(b.dataset.sure){del("trabajos",j.id);toast("Trabajo eliminado");closeSheet()}else{b.dataset.sure="1";b.textContent="¿Seguro? Toca otra vez para eliminar"}};
+  });
+}
+const TPL=[
+ {id:"conf",i:"✅",n:"Confirmación"},{id:"rec",i:"⏰",n:"Recordatorio"},{id:"cam",i:"🚐",n:"En camino"},
+ {id:"fin",i:"🛠️",n:"Terminado"},{id:"rep",i:"🔁",n:"Reprogramar"},{id:"seg",i:"⭐",n:"Seguimiento"}
+];
+function tplText(id,j){
+  const emp=D.cfg.empresa||"Vortice E&C";const nom=(j.cliente||"").split(" ")[0]||"";const e=eq(j.equipo);
+  const L=(ic,k,v)=>v?`${ic} *${k}:* ${v}\n`:"";
+  const det=L("📅","Fecha",j.fecha?longD(j.fecha).replace(/^./,c=>c.toUpperCase()):"")+L("🕐","Hora",hora12(j.hora))+L("🛠️","Servicio",j.servicio)+L(e.i,"Equipo",e.n)+L("📍","Dirección",j.dir)+L("👨‍🔧","Técnico",j.tecnico)+(num(j.valor)?L("💵","Valor estimado",money(j.valor)):"");
+  const firma=`\n— *${emp}*${D.cfg.tel?"\n📞 "+D.cfg.tel:""}`;
+  const cuando=j.fecha===today()?"hoy":j.fecha===addDays(today(),1)?"mañana":longD(j.fecha);
+  switch(id){
+   case "conf":return `✅ *Servicio agendado*\n\nHola ${nom} 👋, tu servicio quedó programado:\n\n${det}\n📝 Ten el equipo despejado y con acceso a la toma eléctrica.\n🔁 Si necesitas cambiar la hora, responde este mensaje.\n\n¡Gracias por confiar en nosotros! 🙌${firma}`;
+   case "rec":return `⏰ *Recordatorio de servicio*\n\nHola ${nom} 👋, te recordamos tu cita de *${cuando}*:\n\n${L("🕐","Hora",hora12(j.hora))}${L("🛠️","Servicio",j.servicio)}${L("📍","Dirección",j.dir)}\n👍 Confírmanos con un *SÍ* por favor.${firma}`;
+   case "cam":return `🚐 *Vamos en camino*\n\nHola ${nom} 👋, ${j.tecnico?"*"+j.tecnico+"*":"nuestro técnico"} va hacia ${j.dir?"*"+j.dir+"*":"tu dirección"}.\n\n⏱️ Llegada aproximada: *30 minutos*.\n🔌 Por favor ten listo el acceso al equipo.${firma}`;
+   case "fin":return `🛠️ *Servicio terminado*\n\nHola ${nom} 👋, terminamos el trabajo:\n\n✔️ *${j.servicio||"Servicio"}* · ${e.i} ${e.n}\n${j.notas?"📝 "+j.notas+"\n":""}${num(j.valor)?"💵 *Valor:* "+money(j.valor)+"\n":""}\n🧾 En breve te enviamos la cuenta de cobro.\n🛡️ Garantía de mano de obra por escrito.\n\n¡Gracias por tu confianza! 🙌${firma}`;
+   case "rep":return `🔁 *Cambio de cita*\n\nHola ${nom} 👋, necesitamos mover tu servicio. La nueva cita queda así:\n\n${det}\n🙏 Disculpa el cambio. Si no te sirve, responde y buscamos otra hora.${firma}`;
+   case "seg":return `⭐ *¿Cómo sigue tu equipo?*\n\nHola ${nom} 👋, hace unos días hicimos ${j.servicio?"el *"+j.servicio.toLowerCase()+"*":"el servicio"} de tu ${e.n.toLowerCase()}.\n\n❄️ ¿Está funcionando bien?\n💬 Cuéntanos cualquier novedad; la garantía te cubre.\n⭐ Si te gustó el trabajo, recomiéndanos. ¡Nos ayuda mucho!\n\n🗓️ Te recomendamos el próximo mantenimiento en 3 a 6 meses.${firma}`;
+  }
+  return "";
+}
+function notifySheet(j,tplId){
+  if(!j)return;let cur=tplId||(j.estado==="terminado"?"fin":j.estado==="en_curso"?"cam":j.fecha===today()||j.fecha===addDays(today(),1)?"rec":"conf");
+  const tel=phone(j.tel);
+  sheet("Avisar al cliente",`<div class="muted">${esc(j.cliente)}${j.tel?" · "+esc(j.tel):" · sin teléfono"}</div>
+   <div class="chips" id="tplC" style="flex-wrap:wrap"></div>
+   <textarea id="tplT" style="min-height:260px;font-size:.92rem"></textarea>
+   <div class="grid2"><a class="btn wa" id="waGo" target="_blank" rel="noopener" href="#">📲 Enviar por WhatsApp</a><button class="btn" type="button" id="cpGo">📋 Copiar mensaje</button></div>
+   ${!tel?`<div class="muted">Agrega el teléfono del cliente en “Editar” para abrir WhatsApp directo a su chat. Sin teléfono, WhatsApp te deja escoger el contacto.</div>`:""}`,pan=>{
+    const T=pan.querySelector("#tplT"),A=pan.querySelector("#waGo");
+    const paintA=()=>{A.href=(tel?"https://wa.me/"+tel:"https://wa.me/")+"?text="+encodeURIComponent(T.value)};
+    const draw=()=>{pan.querySelector("#tplC").innerHTML=TPL.map(t=>`<button class="chip ${t.id===cur?"on":""}" type="button" data-t="${t.id}">${t.i} ${esc(t.n)}</button>`).join("");T.value=tplText(cur,j);paintA()};
+    draw();
+    pan.querySelector("#tplC").onclick=e=>{const b=e.target.closest("[data-t]");if(b){cur=b.dataset.t;draw()}};
+    T.addEventListener("input",paintA);
+    const mark=()=>{const n=TPL.find(t=>t.id===cur).n;j.notif=(j.notif||[]).concat([{tpl:n,f:today()}]).slice(-10);if(cur==="conf"&&j.estado==="programado")j.estado="confirmado";put("trabajos",j)};
+    A.addEventListener("click",()=>{mark();toast("Abriendo WhatsApp…")});
+    pan.querySelector("#cpGo").onclick=async()=>{if(await copyText(T.value))mark()};
+  });
+}
+
+/* ================= FINANZAS ================= */
+function vFinanzas(V){
+  const k=UI.finMonth;const m=monthData(k);const prev=monthData(mkAdd(k,-1));
+  const pct=(a,b)=>b?Math.round((a-b)/Math.abs(b)*100):null;
+  const dI=pct(m.ing,prev.ing);
+  const seg=UI.finSeg;
+  V.innerHTML=`<div class="view">
+   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><button class="icon" type="button" id="mPrev" aria-label="Mes anterior">‹</button><h2>${esc(mkName(k))}</h2><button class="icon" type="button" id="mNext" aria-label="Mes siguiente">›</button></div>
+   <div class="seg" id="fSeg"><button type="button" data-s="resumen" class="${seg==="resumen"?"on":""}">📊 Resumen</button><button type="button" data-s="movs" class="${seg==="movs"?"on":""}">📒 Movim.</button><button type="button" data-s="cotizar" class="${seg==="cotizar"?"on":""}">🧮 Cotizar</button></div>
+   <div id="fBody" class="view"></div></div>`;
+  $("#mPrev").onclick=()=>{UI.finMonth=mkAdd(k,-1);render()};$("#mNext").onclick=()=>{UI.finMonth=mkAdd(k,1);render()};
+  $("#fSeg").onclick=e=>{const b=e.target.closest("[data-s]");if(b){UI.finSeg=b.dataset.s;render()}};
+  const B=$("#fBody");
+  if(seg==="resumen"){
+    const pr=projection(k,UI.esc);
+    const series=[...Array(6)].map((_,i)=>monthData(mkAdd(k,i-5)));
+    const proj=k===mk(today())&&pr.ok?pr.rows.slice(1):[];
+    const cats=Object.entries(m.ms.filter(x=>x.tipo==="egreso").reduce((a,x)=>{a[x.cat]=(a[x.cat]||0)+num(x.monto);return a},{})).sort((a,b)=>b[1]-a[1]);
+    const maxC=cats.length?cats[0][1]:1;
+    const cob=vCobrar().reduce((a,r)=>a+r.sal,0),cot=vCotPend().reduce((a,r)=>a+r.tot,0);
+    B.innerHTML=`
+    <div class="kpis">
+     <div class="kpi"><small>💵 Ventas / ingresos</small><b>${money(m.ing)}</b>${dI!=null?`<i class="${dI>=0?"up":"down"}">${dI>=0?"▲":"▼"} ${Math.abs(dI)}% vs mes anterior</i>`:`<i class="muted">${m.ingV?"incluye Vortice":"&nbsp;"}</i>`}</div>
+     <div class="kpi"><small>🧰 Costos directos</small><b style="color:var(--cost)">${money(m.costo)}</b><i class="muted">materiales, gas, ayudantes</i></div>
+     <div class="kpi"><small>🏠 Gastos fijos</small><b style="color:var(--warn)">${money(m.gasto)}</b><i class="muted">operación del taller</i></div>
+     <div class="kpi"><small>📈 Utilidad neta</small><b class="${m.util>=0?"up":"down"}">${money(m.util)}</b><i class="muted">margen ${m.ing?Math.round(m.margen):0}%</i></div>
+    </div>
+    <div class="card"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b>Historia${proj.length?" y proyección":""}</b>
+     <div class="legend"><span><i style="background:var(--brand)"></i>Ingresos</span><span><i style="background:var(--cost)"></i>Egresos</span>${proj.length?`<span><i style="background:repeating-linear-gradient(45deg,var(--brand) 0 2px,transparent 2px 4px);border:1px solid var(--brand)"></i>Proyectado</span>`:""}</div></div>
+     <div class="chart" style="margin-top:8px">${barChart(series,proj,k)}</div></div>
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b>🔮 Proyección próximos 3 meses</b>
+     <div class="chips" id="escC"><button class="chip ${UI.esc==="cons"?"on":""}" data-e="cons" type="button">Conservador</button><button class="chip ${UI.esc==="normal"?"on":""}" data-e="normal" type="button">Normal</button><button class="chip ${UI.esc==="opt"?"on":""}" data-e="opt" type="button">Optimista</button></div></div>
+     ${pr.ok?`<div style="overflow-x:auto;margin-top:8px"><table class="t"><thead><tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Utilidad</th></tr></thead><tbody>${pr.rows.map(r=>`<tr><td>${esc(mkName(r.k))}</td><td>${money(r.ing)}</td><td>${money(r.egr)}</td><td class="${r.util>=0?"up":"down"}">${money(r.util)}</td></tr>`).join("")}</tbody></table></div>
+      <div class="muted" style="margin-top:8px">Calculado con la tendencia de tus últimos ${pr.hist.length} meses con movimientos. Conservador baja las ventas 15 %; optimista las sube 15 %.</div>`
+     :`<div class="empty" style="margin-top:8px"><b>Faltan datos para proyectar</b>Registra ingresos y gastos de al menos 2 meses anteriores (o sincroniza Vortice) y aquí verás la proyección.</div>`}
+     <div class="grid2" style="margin-top:10px"><div class="kpi"><small>⏳ Por cobrar (Vortice)</small><b style="color:var(--warn)">${money(cob)}</b></div><div class="kpi"><small>📝 Cotizaciones pendientes</small><b>${money(cot)}</b></div></div></div>
+    <div class="card"><b>¿En qué se va la plata?</b>
+     ${cats.length?`<div class="hbar" style="margin-top:10px">${cats.map(([c,v])=>`<div><span>${esc(c)}</span><b>${money(v)}</b><span class="t"><i style="width:${Math.max(3,v/maxC*100)}%;background:${clase(c)==="costo"?"var(--cost)":"var(--warn)"}"></i></span></div>`).join("")}</div>`:`<div class="muted" style="margin-top:6px">Sin gastos registrados este mes.</div>`}</div>
+    <div class="grid2"><button class="btn g" type="button" data-act="newMov" data-t="ingreso">＋ Ingreso</button><button class="btn" type="button" data-act="newMov" data-t="egreso" style="border-color:var(--cost);color:var(--cost)">＋ Gasto / costo</button></div>
+    <label class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer"><span><b>Incluir ventas de Vortice Docs</b><span class="muted" style="display:block">Suma recibos de pago y cuentas pagadas de la copia sincronizada.</span></span><input type="checkbox" id="incV" ${incluirV()?"checked":""} style="width:auto;transform:scale(1.4)"></label>`;
+    $("#escC").onclick=e=>{const b=e.target.closest("[data-e]");if(b){UI.esc=b.dataset.e;render()}};
+    $("#incV").onchange=e=>{D.cfg.incluirV=e.target.checked;saveCfg();render()};
+  }else if(seg==="movs"){
+    const rows=[...m.ms.map(x=>({...x,src:"m"})),...m.vs.map(s=>({tipo:"ingreso",cat:"Vortice Docs",monto:s.monto,fecha:s.f,desc:s.desc,src:"v"}))].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+    B.innerHTML=`<div class="grid2"><button class="btn g" type="button" data-act="newMov" data-t="ingreso">＋ Ingreso</button><button class="btn" type="button" data-act="newMov" data-t="egreso" style="border-color:var(--cost);color:var(--cost)">＋ Gasto / costo</button></div>
+    <div class="card"><div class="tot"><span>Ingresos</span><b class="up">${money(m.ing)}</b></div><div class="tot"><span>Costos directos</span><b style="color:var(--cost)">− ${money(m.costo)}</b></div><div class="tot"><span>Gastos fijos</span><b style="color:var(--warn)">− ${money(m.gasto)}</b></div><div class="tot big"><span>Utilidad</span><span class="${m.util>=0?"up":"down"}">${money(m.util)}</span></div></div>
+    ${rows.length?`<div class="list">${rows.map(r=>{const c=r.src==="v"?"ingreso":clase(r.cat);const ic=r.src==="v"?"🧾":c==="ingreso"?"💵":c==="costo"?"🧰":"🏠";
+      const inner=`<span class="em">${ic}</span><span class="tx"><b>${esc(r.desc||r.cat)}</b><small>${esc(r.cat)} · ${esc(fmtD(r.fecha))}</small></span><span class="rt" style="color:${c==="ingreso"?"var(--ok)":c==="costo"?"var(--cost)":"var(--warn)"}">${c==="ingreso"?"+":"−"} ${money(r.monto)}</span>`;
+      return r.src==="m"?`<button class="row" type="button" data-act="editMov" data-id="${esc(r.id)}">${inner}</button>`:`<div class="row">${inner}</div>`}).join("")}</div>`:`<div class="empty"><b>Sin movimientos en ${esc(mkName(k))}</b>Registra lo que entra y lo que sale para ver tu utilidad real.</div>`}`;
+  }else{
+    vCotizar(B);
+  }
+}
+function barChart(series,proj,sel){
+  const all=[...series.map(s=>({k:s.k,a:s.ing,b:s.egr,p:false})),...proj.map(p=>({k:p.k,a:p.ing,b:p.egr,p:true}))];
+  const W=Math.max(420,all.length*62),H=210,pl=44,pb=28,pt=18,ch=H-pt-pb;
+  const max=Math.max(1,...all.map(x=>Math.max(x.a,x.b)));
+  const step=Math.pow(10,Math.floor(Math.log10(max)));const nice=Math.ceil(max/step)*step;const top=nice<max*1.05?nice+step:nice;
+  const y=v=>pt+ch-(v/top)*ch;const gw=(W-pl-8)/all.length;const bw=Math.min(18,gw*0.3);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Ingresos y egresos por mes"><defs><pattern id="hp" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2.5" height="5" fill="#2f8cff"></rect></pattern><pattern id="hc" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2.5" height="5" fill="#ff8a4c"></rect></pattern></defs>`;
+  for(let i=0;i<=4;i++){const v=top*i/4;s+=`<line x1="${pl}" x2="${W-4}" y1="${y(v)}" y2="${y(v)}" stroke="#22324a" stroke-width="1"></line><text x="${pl-6}" y="${y(v)+4}" text-anchor="end" font-size="10" fill="#8ea2b8">${esc(short(v))}</text>`}
+  all.forEach((x,i)=>{const cx=pl+gw*i+gw/2;const on=x.k===sel;
+    const r=(v,dx,fill,pat)=>{const h=Math.max(v>0?2:0,ch*(v/top));return `<rect x="${cx+dx}" y="${pt+ch-h}" width="${bw}" height="${h}" rx="3" fill="${x.p?`url(#${pat})`:fill}" ${x.p?`stroke="${fill}" stroke-width="1"`:""} opacity="${on||x.p?1:.78}"></rect>`};
+    s+=r(x.a,-bw-1,"#2f8cff","hp")+r(x.b,1,"#ff8a4c","hc");
+    s+=`<text x="${cx}" y="${H-10}" text-anchor="middle" font-size="11" font-weight="${on?800:600}" fill="${on?"#eaf1f8":"#8ea2b8"}">${esc(mkName(x.k,true))}${x.p?"*":""}</text>`;
+    if(on&&(x.a||x.b))s+=`<text x="${cx}" y="${Math.max(12,y(Math.max(x.a,x.b))-6)}" text-anchor="middle" font-size="10" font-weight="800" fill="#eaf1f8">${esc(short(x.a-x.b))}</text>`;
+  });
+  return s+"</svg>";
+}
+function movForm(m,tipo){
+  const isNew=!m;m=m?Object.assign({},m):{id:uid(),tipo:tipo||"egreso",cat:"",monto:"",fecha:UI.finMonth===mk(today())?today():UI.finMonth+"-01",desc:""};
+  const opts=t=>t==="ingreso"?`<optgroup label="Ingresos">${CAT.ingreso.map(c=>`<option ${c===m.cat?"selected":""}>${esc(c)}</option>`).join("")}</optgroup>`:`<optgroup label="Costos directos (de cada trabajo)">${CAT.costo.map(c=>`<option ${c===m.cat?"selected":""}>${esc(c)}</option>`).join("")}</optgroup><optgroup label="Gastos fijos (del taller)">${CAT.gasto.map(c=>`<option ${c===m.cat?"selected":""}>${esc(c)}</option>`).join("")}</optgroup>`;
+  sheet(isNew?(m.tipo==="ingreso"?"Registrar ingreso":"Registrar gasto o costo"):"Editar movimiento",`<div class="fg">
+   <div class="seg" id="mvT"><button type="button" data-t="ingreso" class="${m.tipo==="ingreso"?"on":""}">💵 Ingreso</button><button type="button" data-t="egreso" class="${m.tipo==="egreso"?"on":""}">💸 Gasto / costo</button></div>
+   <label class="f">Valor<input id="mvM" inputmode="numeric" value="${m.monto?esc(Math.round(num(m.monto)).toLocaleString("es-CO")):""}" placeholder="$ 0" style="font-size:1.3rem;font-weight:800"></label>
+   <div class="fg2"><label class="f">Categoría<select id="mvC">${opts(m.tipo)}</select></label><label class="f">Fecha<input id="mvF" type="date" value="${esc(m.fecha)}"></label></div>
+   <label class="f">Descripción<input id="mvD" value="${esc(m.desc)}" placeholder="${m.tipo==="ingreso"?"Ej: Mantenimiento 3 minisplit · Panadería La 80":"Ej: Compresor Embraco FFU 130 · Cuarto frío"}"></label>
+   <button class="btn p w" type="button" id="mvS">Guardar</button>${!isNew?`<button class="btn d w" type="button" id="mvX">Eliminar</button>`:""}</div>`,pan=>{
+    const g=id=>pan.querySelector("#"+id);
+    g("mvT").onclick=e=>{const b=e.target.closest("[data-t]");if(!b)return;m.tipo=b.dataset.t;g("mvT").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));g("mvC").innerHTML=opts(m.tipo)};
+    g("mvM").addEventListener("blur",()=>{const v=num(g("mvM").value);g("mvM").value=v?Math.round(v).toLocaleString("es-CO"):""});
+    g("mvS").onclick=()=>{const v=num(g("mvM").value);if(!v){toast("Escribe el valor");g("mvM").focus();return}Object.assign(m,{monto:v,cat:g("mvC").value,fecha:g("mvF").value||today(),desc:g("mvD").value.trim()});put("movs",m);toast("Guardado ✔");closeSheet()};
+    if(g("mvX"))g("mvX").onclick=()=>{const b=g("mvX");if(b.dataset.sure){del("movs",m.id);toast("Eliminado");closeSheet()}else{b.dataset.sure="1";b.textContent="¿Seguro? Toca otra vez"}};
+  });
+}
+function vCotizar(B){
+  const s=LS.get("cot",{mat:[{d:"",v:""}],hT:"4",tT:String(D.cfg.tarifa||"35000"),hA:"0",tA:"20000",tr:"",imp:"10",mar:String(D.cfg.margen||"35"),iva:false});
+  const save=()=>LS.set("cot",s);
+  const calc=()=>{const mat=s.mat.reduce((a,x)=>a+num(x.v),0),mo=num(s.hT)*num(s.tT),ay=num(s.hA)*num(s.tA),tr=num(s.tr);const base=mat+mo+ay+tr,imp=base*num(s.imp)/100,costo=base+imp;const mg=Math.min(num(s.mar),90)/100;const precio=costo/(1-mg);const iva=s.iva?precio*.19:0;return {mat,mo:mo+ay,tr,imp,costo,precio,iva}};
+  const totals=()=>{const c=calc();B.querySelector("#cTot").innerHTML=`<div class="tot"><span>Materiales</span><b>${money(c.mat)}</b></div><div class="tot"><span>Mano de obra (técnico + ayudante)</span><b>${money(c.mo)}</b></div><div class="tot"><span>Transporte</span><b>${money(c.tr)}</b></div><div class="tot"><span>Imprevistos</span><b>${money(c.imp)}</b></div>
+      <div class="tot"><span>Costo total del trabajo</span><b style="color:var(--cost)">${money(c.costo)}</b></div><div class="tot"><span>Precio sin IVA</span><b>${money(c.precio)}</b></div>${s.iva?`<div class="tot"><span>IVA 19 %</span><b>${money(c.iva)}</b></div>`:""}
+      <div class="tot big"><span>Precio sugerido</span><span style="color:var(--brand2)">${money(c.precio+c.iva)}</span></div><div class="tot"><span>Tu utilidad</span><b class="up">${money(c.precio-c.costo)}</b></div>`};
+  const matRows=()=>s.mat.map((x,i)=>`<div style="display:grid;grid-template-columns:1fr 110px 34px;gap:6px"><input data-i="${i}" data-k="d" value="${esc(x.d)}" placeholder="Ej: Capacitor 35+5 µF"><input data-i="${i}" data-k="v" inputmode="numeric" value="${esc(x.v)}" placeholder="$ 0"><button class="x" type="button" data-rm="${i}" aria-label="Quitar">✕</button></div>`).join("");
+  B.innerHTML=`<div class="card fg"><b>🧮 Cotizar un trabajo</b><div class="muted">Calcula el precio justo: lo que te cuesta el trabajo más tu margen. Luego pásalo a una cotización en Vortice.</div>
+     <h3>Materiales y repuestos</h3><div class="fg" id="cMat">${matRows()}</div>
+     <button class="btn sm" type="button" id="cAdd" style="justify-self:start">＋ Agregar material</button>
+     <h3>Mano de obra</h3>
+     <div class="fg2"><label class="f">Horas técnico<input data-k="hT" inputmode="decimal" value="${esc(s.hT)}"></label><label class="f">Tarifa / hora<input data-k="tT" inputmode="numeric" value="${esc(s.tT)}"></label></div>
+     <div class="fg2"><label class="f">Horas ayudante<input data-k="hA" inputmode="decimal" value="${esc(s.hA)}"></label><label class="f">Tarifa ayudante / hora<input data-k="tA" inputmode="numeric" value="${esc(s.tA)}"></label></div>
+     <div class="fg2"><label class="f">Transporte<input data-k="tr" inputmode="numeric" value="${esc(s.tr)}" placeholder="$ 0"></label><label class="f">Imprevistos %<input data-k="imp" inputmode="decimal" value="${esc(s.imp)}"></label></div>
+     <div class="fg2"><label class="f">Margen de utilidad %<input data-k="mar" inputmode="decimal" value="${esc(s.mar)}"></label><label class="f" style="align-content:end"><span style="display:flex;align-items:center;gap:8px;padding:11px 0"><input type="checkbox" id="cIva" ${s.iva?"checked":""} style="width:auto;transform:scale(1.3)"> Cobrar IVA 19 %</span></label></div></div>
+    <div class="card"><div id="cTot"></div><div class="grid2" style="margin-top:8px"><button class="btn" type="button" id="cCopy">📋 Copiar detalle</button><a class="btn p" href="https://vortice-ec.netlify.app/app/" target="_blank" rel="noopener">🧾 Abrir Vortice</a></div></div>`;
+  totals();
+  B.addEventListener("input",e=>{const inp=e.target.closest("input[data-k]");if(!inp)return;const i=inp.dataset.i;if(i!=null)s.mat[+i][inp.dataset.k]=inp.value;else s[inp.dataset.k]=inp.value;save();totals()});
+  const M=B.querySelector("#cMat");
+  M.onclick=e=>{const b=e.target.closest("[data-rm]");if(b){s.mat.splice(+b.dataset.rm,1);if(!s.mat.length)s.mat.push({d:"",v:""});save();M.innerHTML=matRows();totals()}};
+  B.querySelector("#cAdd").onclick=()=>{s.mat.push({d:"",v:""});save();M.innerHTML=matRows();const ins=M.querySelectorAll('input[data-k="d"]');ins[ins.length-1].focus()};
+  B.querySelector("#cIva").onchange=e=>{s.iva=e.target.checked;save();totals()};
+  B.querySelector("#cCopy").onclick=()=>{const c=calc();const lines=s.mat.filter(x=>x.d||num(x.v)).map(x=>`• ${x.d||"Material"}: ${money(num(x.v))}`);copyText(`COTIZACIÓN\n${lines.length?"Materiales:\n"+lines.join("\n")+"\n":""}• Mano de obra: ${money(c.mo)}\n${c.tr?"• Transporte: "+money(c.tr)+"\n":""}${c.imp?"• Imprevistos: "+money(c.imp)+"\n":""}\nPrecio${s.iva?" (IVA incluido)":""}: ${money(c.precio+c.iva)}`)};
+}
+
+/* ================= FACTURAS (Vortice Docs) ================= */
+function vFacturas(V){
+  const info=vInfo();const rows=vRows();
+  const cob=vCobrar().sort((a,b)=>b.sal-a.sal),cot=vCotPend().sort((a,b)=>(b.f||"").localeCompare(a.f||""));
+  const k=mk(today());const ventasMes=vSales().filter(s=>mk(s.f)===k).reduce((a,s)=>a+s.monto,0);
+  V.innerHTML=`<div class="view">
+   <div class="hero" style="display:grid;gap:10px"><div style="display:flex;gap:12px;align-items:center"><div class="logo" style="width:46px;height:46px;font-size:1.2rem">🧾</div><div><h2>Vortice Docs</h2><div class="muted">Cotizaciones, cuentas de cobro y recibos con tu logo y firma.</div></div></div>
+    <a class="btn p w" href="https://vortice-ec.netlify.app/app/" target="_blank" rel="noopener">Abrir Vortice Docs ↗</a></div>
+   <div class="card fg"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><b>🔄 Sincronizar con Vortice</b>${info?`<span class="pill terminado">Última: ${esc(fmtD(info.fecha.slice(0,10)))}</span>`:`<span class="pill en_curso">Sin sincronizar</span>`}</div>
+    <div class="muted">Así tus ventas, cuentas por cobrar y clientes aparecen aquí, en Finanzas y en la Agenda:</div>
+    <div class="list">
+     <div class="row"><span class="em">1</span><span class="tx" style="white-space:normal"><b style="white-space:normal">En Vortice Docs ve a ⚙️ Ajustes</b><small style="white-space:normal">Toca “💾 Hacer copia de seguridad” y guarda el archivo en el celular.</small></span></div>
+     <div class="row"><span class="em">2</span><span class="tx" style="white-space:normal"><b style="white-space:normal">Vuelve aquí y carga la copia</b><small style="white-space:normal">Repite cuando quieras actualizar. Tus documentos en Vortice no se modifican.</small></span></div>
+    </div>
+    <button class="btn g w" type="button" data-act="importV">📂 Cargar copia de Vortice</button></div>
+   ${info?`<div class="kpis">
+     <div class="kpi"><small>Documentos</small><b>${rows.length}</b></div><div class="kpi"><small>Clientes</small><b>${vClients().length}</b></div>
+     <div class="kpi"><small>Ventas ${esc(mkName(k,true))}</small><b class="up">${money(ventasMes)}</b></div><div class="kpi"><small>Por cobrar</small><b style="color:var(--warn)">${money(cob.reduce((a,r)=>a+r.sal,0))}</b></div></div>
+    <h3>⏳ Cuentas por cobrar</h3>
+    ${cob.length?`<div class="list">${cob.slice(0,30).map(r=>`<div class="row"><span class="em">💵</span><span class="tx"><b>${esc(r.c||"Sin cliente")}</b><small>${esc(r.n)} · ${esc(fmtD(r.f))}${r.it?" · "+esc(r.it):""}</small></span><span class="rt" style="color:var(--warn)">${money(r.sal)}<small><button class="btn wa sm" type="button" data-act="cobrar" data-n="${esc(r.n)}" style="margin-top:4px">📲 Cobrar</button></small></span></div>`).join("")}</div>`:`<div class="empty"><b>Todo cobrado 🎉</b>No hay cuentas de cobro pendientes.</div>`}
+    <h3>📝 Cotizaciones por cerrar</h3>
+    ${cot.length?`<div class="list">${cot.slice(0,30).map(r=>`<div class="row"><span class="em">🧾</span><span class="tx"><b>${esc(r.c||"Sin cliente")}</b><small>${esc(r.n)} · ${esc(fmtD(r.f))}${r.it?" · "+esc(r.it):""}</small></span><span class="rt">${money(r.tot)}<small><button class="btn sm" type="button" data-act="newJob" data-pre='${esc(JSON.stringify({cliente:r.c,tel:r.tel,dir:r.dir,notas:(r.n+" "+(r.it||"")).trim(),valor:r.tot}))}' style="margin-top:4px">📅 Agendar</button></small></span></div>`).join("")}</div>`:`<div class="empty"><b>Sin cotizaciones pendientes</b>Las cotizaciones en estado “pendiente” aparecen aquí para hacerles seguimiento.</div>`}`
+   :`<div class="empty"><b>Aún no has cargado datos de Vortice</b>Sigue los dos pasos de arriba. Toma menos de un minuto.</div>`}
+  </div>`;
+}
+function cobroSheet(r){
+  const emp=D.cfg.empresa||(vInfo()||{}).empresa||"Vortice E&C";const pago=(vInfo()||{}).pago||"";const nom=(r.c||"").split(" ")[0];
+  const txt=`💵 *Recordatorio de pago*\n\nHola ${nom} 👋, te escribimos de *${emp}*.\n\n🧾 *Cuenta de cobro:* ${r.n}\n📅 *Fecha:* ${fmtD(r.f)}\n${r.it?"🛠️ *Servicio:* "+r.it+"\n":""}💰 *Saldo pendiente:* ${money(r.sal)}\n${pago?"\n🏦 *Datos para el pago:*\n"+pago+"\n":""}\n🙏 Cuando realices el pago, envíanos el comprobante por aquí.\n\n¡Gracias! 🙌`;
+  const tel=phone(r.tel);
+  sheet("Cobrar por WhatsApp",`<textarea id="cbT" style="min-height:240px">${esc(txt)}</textarea><div class="grid2"><a class="btn wa" id="cbA" target="_blank" rel="noopener" href="#">📲 Enviar</a><button class="btn" type="button" id="cbC">📋 Copiar</button></div>`,pan=>{
+    const T=pan.querySelector("#cbT"),A=pan.querySelector("#cbA");const p=()=>A.href=(tel?"https://wa.me/"+tel:"https://wa.me/")+"?text="+encodeURIComponent(T.value);p();T.oninput=p;
+    pan.querySelector("#cbC").onclick=()=>copyText(T.value);
+  });
+}
+
+/* ================= AJUSTES ================= */
+function vSettings(){
+  const c=D.cfg;
+  sheet("Ajustes",`<div class="fg">
+   <label class="f">Nombre de la empresa (sale en los mensajes)<input id="sE" value="${esc(c.empresa||"")}" placeholder="Vortice E&C"></label>
+   <div class="fg2"><label class="f">Tu nombre<input id="sN" value="${esc(c.tecnico||"")}" placeholder="Técnico principal"></label><label class="f">Teléfono de contacto<input id="sT" inputmode="tel" value="${esc(c.tel||"")}"></label></div>
+   <div class="fg2"><label class="f">Tarifa por hora (cotizar)<input id="sR" inputmode="numeric" value="${esc(c.tarifa||"")}" placeholder="35000"></label><label class="f">Margen de utilidad %<input id="sM" inputmode="decimal" value="${esc(c.margen||"")}" placeholder="35"></label></div>
+   <button class="btn p w" type="button" id="sS">Guardar</button>
+   <div class="muted">${D.mode==="cloud"?"☁️ Tus datos se guardan en tu cuenta de Claude: los ves en cualquier celular donde abras este enlace con tu cuenta.":"📱 Ahora los datos se guardan solo en este celular. Abre el enlace en claude.ai con tu cuenta para guardarlos en la nube."}</div></div>`,pan=>{
+    pan.querySelector("#sS").onclick=()=>{const g=id=>pan.querySelector("#"+id).value.trim();Object.assign(D.cfg,{empresa:g("sE"),tecnico:g("sN"),tel:g("sT"),tarifa:num(g("sR"))||"",margen:num(g("sM"))||""});saveCfg();toast("Ajustes guardados ✔");closeSheet()};
+  });
+}
+
+/* ================= arranque ================= */
+render();
+initStore();
 })();
 </script>

@@ -172,6 +172,14 @@ table.t th{color:var(--mut);font-size:.72rem;text-transform:uppercase;letter-spa
 .sheet .hd h2{font-size:1.1rem}
 .x{background:var(--s2);border:1px solid var(--line);border-radius:50%;width:34px;height:34px;font-size:1rem;flex:none}
 .preview{background:#0b141f;border:1px solid var(--line);border-radius:14px;padding:12px;white-space:pre-wrap;font-size:.9rem;overflow-wrap:anywhere}
+.prev{background:#fff;border-radius:14px;overflow:hidden}.prev img{display:block;width:100%}
+.sig{background:#fff;border-radius:12px;width:100%;height:160px;touch-action:none;display:block}
+.logo-prev{background:#fff;border-radius:12px;padding:10px;text-align:center}.logo-prev img{max-width:100%;max-height:90px}
+.item{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:10px;display:grid;gap:8px}
+.isub{font-weight:800;text-align:right;white-space:nowrap;padding:11px 0}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pill.pagado,.pill.aceptada{background:#123b29;color:#5fe0a0}.pill.pendiente{background:#3d3112;color:#ffcf66}.pill.rechazada{background:#3d1720;color:#ff9aa5}
+#fx h2{font-size:1.15rem}
 #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#eaf1f8;color:#07101c;padding:10px 16px;border-radius:99px;font-weight:800;opacity:0;transition:opacity .25s;pointer-events:none;z-index:40;max-width:90vw;text-align:center}
 #toast.on{opacity:1}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -271,8 +279,8 @@ const estN=id=>(EST.find(e=>e[0]===id)||EST[0])[1];
 const clase=cat=>CAT.costo.includes(cat)?"costo":CAT.gasto.includes(cat)?"gasto":"ingreso";
 
 /* ================= almacenamiento (nube del usuario o este celular) ================= */
-const COLS=["consultas","trabajos","movs","vortice"];
-const D={mode:"local",base:null,cfg:LS.get("cfg",{}),consultas:LS.get("consultas",[]),trabajos:LS.get("trabajos",[]),movs:LS.get("movs",[]),vortice:LS.get("vortice",[])};
+const COLS=["consultas","trabajos","movs","vortice","fdocs","fcli","fconf"];
+const D={mode:"local",base:null,cfg:LS.get("cfg",{}),consultas:LS.get("consultas",[]),trabajos:LS.get("trabajos",[]),movs:LS.get("movs",[]),vortice:LS.get("vortice",[]),fdocs:LS.get("fdocs",[]),fcli:LS.get("fcli",[]),fconf:LS.get("fconf",[])};
 let readOnly=false;
 function cache(name){LS.set(name,D[name])}
 function setSync(t,ok){const s=$("#sync");s.textContent=t;s.classList.toggle("ok",!!ok)}
@@ -281,16 +289,18 @@ function put(name,obj){
   obj.id=obj.id||uid();obj.upd=Date.now();
   const arr=D[name];const i=arr.findIndex(x=>x.id===obj.id);if(i>=0)arr[i]=obj;else arr.push(obj);
   cache(name);
-  if(D.mode==="cloud"){const {id,...rest}=obj;return D.base.collection(name).doc(id).set(JSON.parse(JSON.stringify(rest))).catch(dbErr)}
+  if(D.mode==="cloud"){const {id,...rest}=obj;const body=JSON.parse(JSON.stringify(rest));const w=()=>D.base.collection(name).doc(id).set(body);
+    return w().catch(e=>{if(e&&(e.code==="resource_exhausted"||e.code==="unavailable"))return new Promise(r=>setTimeout(r,1200+Math.random()*1200)).then(w);throw e}).catch(dbErr)}
   return Promise.resolve();
 }
 function del(name,id){
   D[name]=D[name].filter(x=>x.id!==id);cache(name);
-  if(D.mode==="cloud")return D.base.collection(name).doc(id).delete().catch(dbErr);
+  if(D.mode==="cloud"){const w=()=>D.base.collection(name).doc(id).delete();return w().catch(e=>{if(e&&(e.code==="resource_exhausted"||e.code==="unavailable"))return new Promise(r=>setTimeout(r,1200+Math.random()*1200)).then(w);throw e}).catch(dbErr)}
   return Promise.resolve();
 }
 function saveCfg(){LS.set("cfg",D.cfg);if(D.mode==="cloud")D.base.set(JSON.parse(JSON.stringify({cfg:D.cfg}))).catch(dbErr)}
-let rerenderT=null;function soon(){clearTimeout(rerenderT);rerenderT=setTimeout(()=>{if(!sheetOpen&&!busy)render()},60)}
+function holdRender(){const a=document.activeElement;return sheetOpen||busy||(SUB&&SUB.kind==="fx")||(TAB==="facturas"&&FX.tab==="ajustes")||!!(a&&a.closest&&a.closest("#view")&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))}
+let rerenderT=null;function soon(d){clearTimeout(rerenderT);rerenderT=setTimeout(()=>{if(holdRender())return soon(1500);render()},d||120)}
 async function initStore(){
   let db=null,user=null;
   try{[db,user]=await Promise.all([window.claude?.use("db"),window.claude?.use("user")])}catch(e){}
@@ -303,7 +313,7 @@ async function initStore(){
   COLS.forEach(name=>{
     let got=false;
     D.base.collection(name).onSnapshot(s=>{
-      D[name]=s.docs.map(d=>Object.assign({id:d.id},d.data()));cache(name);
+      D[name]=s.docs.map(d=>Object.assign({id:d.id},d.data()));cache(name);if(name==="fconf"){onConf();paintHead()}
       if(!got){got=true;first++;if(first===COLS.length){clearTimeout(timer);setSync("☁️ En tu cuenta",true);migrateLocal()}}
       soon();
     },e=>{clearTimeout(timer);setSync("Sin conexión")});
@@ -317,50 +327,79 @@ function migrateLocal(){
 }
 try{const v1=localStorage.getItem("mt.turns");if(v1&&!LS.get("v1turns",null))LS.set("v1turns",JSON.parse(v1))}catch(e){}
 
-/* ================= datos de Vortice (copia importada) ================= */
-function vInfo(){return D.vortice.find(x=>x.id==="info")||null}
-function vRows(){return D.vortice.filter(x=>/^d\d+$/.test(x.id)).sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true})).flatMap(x=>x.rows||[])}
-function vClients(){const i=vInfo();return i&&i.clients||[]}
-function vSales(){
-  const rows=vRows();const refs=rows.filter(r=>r.t==="rc").map(r=>r.ref||"").join(" | ");
+/* ================= Facturas: datos (antes Vortice Docs en el celular) ================= */
+const clone=o=>JSON.parse(JSON.stringify(o));
+const TIPOS={
+  cot:{n:"Cotización",h:"COTIZACIÓN",i:"🧾",d:"Precio antes de empezar el trabajo"},
+  cc:{n:"Cuenta de cobro",h:"CUENTA DE COBRO",i:"💵",d:"Lo que el cliente te debe pagar"},
+  rc:{n:"Recibo de pago",h:"RECIBO DE PAGO",i:"✅",d:"Comprobante de que el cliente ya pagó"}
+};
+const DEF={
+  empresa:"Vortice E&C S.A.S",nit:"",tel:"+57 314 615 3559",email:"",dir:"",ciudad:"Medellín, Antioquia",
+  web:"vortice-ec.netlify.app",lema:"Refrigeración · Aire acondicionado · Construcción · Electricidad",
+  color:"#1f6fd1",logo:null,firma:null,firmaNombre:"",
+  pago:"",pie:"Gracias por confiar en Vortice E&C.",
+  legal:"Documento soporte de cobro/pago. No reemplaza la factura electrónica.",
+  ivaPct:19,validez:15,
+  cond:"Garantía de mano de obra por escrito. Precios sujetos a revisión en sitio si el equipo presenta daños adicionales.",
+  pref:{cot:"COT",cc:"CC",rc:"RC"},next:{cot:1,cc:1,rc:1}
+};
+const DEFCAT=[{d:"Visita técnica y diagnóstico",p:0},{d:"Mantenimiento preventivo de minisplit",p:0},{d:"Instalación de minisplit 12.000 BTU",p:0},{d:"Carga de gas refrigerante",p:0},{d:"Reparación de nevera",p:0},{d:"Mano de obra",p:0},{d:"Materiales",p:0}];
+const LOGO_DEF="logo.png";
+function conf(id){return D.fconf.find(x=>x.id===id)||null}
+function buildS(){const st=conf("settings")||{};const s=Object.assign(clone(DEF),st.s||{});s.pref=Object.assign(clone(DEF.pref),s.pref);s.next=Object.assign(clone(DEF.next),s.next);s.logo=(conf("logo")||{}).data||null;s.firma=(conf("firma")||{}).data||null;return s}
+function buildCat(){const c=conf("catalog");return c&&Array.isArray(c.items)?clone(c.items):clone(DEFCAT)}
+let S=buildS(),CATL=buildCat(),sT=null,cT=null;
+function saveS(){clearTimeout(sT);sT=setTimeout(()=>{sT=null;const {logo,firma,...rest}=S;put("fconf",{id:"settings",s:rest})},500);return true}
+function saveC(){clearTimeout(cT);cT=setTimeout(()=>{cT=null;put("fconf",{id:"catalog",items:CATL})},500)}
+function onConf(){if(!sT&&!cT){S=buildS();CATL=buildCat()}}
+function DOCS(){return [...D.fdocs].filter(d=>d&&d.tipo&&d.cliente).sort((a,b)=>((b.fecha||"")+(b.editado||"")).localeCompare((a.fecha||"")+(a.editado||"")))}
+function CLI(){return [...D.fcli].filter(c=>c.nombre).sort((a,b)=>a.nombre.localeCompare(b.nombre))}
+function calc(d){
+  const sub=(d.items||[]).reduce((a,it)=>a+num(it.c)*num(it.p),0);
+  const desc=sub*num(d.desc)/100,base=sub-desc;
+  const iva=d.ivaOn?base*num(d.ivaPct)/100:0,total=base+iva;
+  const abono=d.tipo==="rc"?total:num(d.abono);
+  const pagado=d.estado==="pagado"?total:Math.min(abono,total);
+  return {sub,desc,base,iva,total,abono,pagado,saldo:Math.max(total-pagado,0)};
+}
+function newDoc(tipo,cliente){
+  return {id:uid(),tipo,titulo:TIPOS[tipo].h,num:"",fecha:today(),validez:S.validez,
+    cliente:Object.assign({nombre:"",doc:"",tel:"",dir:"",email:""},cliente||{}),
+    items:[{d:"",c:1,p:0}],desc:0,ivaOn:false,ivaPct:S.ivaPct,abono:0,
+    pago:"",notas:"",cond:tipo==="cot"?S.cond:"",estado:tipo==="rc"?"pagado":"pendiente",ref:""};
+}
+function upsertClient(c){
+  if(!c||!String(c.nombre||"").trim())return;
+  const k=c.nombre.trim().toLowerCase();const ex=D.fcli.find(x=>(x.nombre||"").trim().toLowerCase()===k);
+  const clean={nombre:c.nombre.trim(),doc:c.doc||"",tel:c.tel||"",dir:c.dir||"",email:c.email||""};
+  if(ex){const m=Object.assign({},ex);let ch=false;Object.entries(clean).forEach(([kk,v])=>{if(v&&m[kk]!==v){m[kk]=v;ch=true}});if(ch)put("fcli",m)}
+  else put("fcli",Object.assign({id:uid()},clean));
+}
+// Dinero que entró según los documentos (misma regla que "Cobrado en el mes" de Vortice)
+function fxSales(){
   const out=[];
-  rows.forEach(r=>{
-    if(r.t==="rc")out.push({f:r.f,monto:r.tot,desc:`Recibo ${r.n} · ${r.c||"Cliente"}`,src:"v"});
-    else if(r.t==="cc"&&r.e==="pagado"&&!(r.n&&refs.includes(r.n)))out.push({f:r.f,monto:r.tot,desc:`Cuenta ${r.n} pagada · ${r.c||"Cliente"}`,src:"v"});
-  });
-  return out;
+  D.fdocs.forEach(d=>{if(!d||!d.cliente)return;
+    if(d.tipo==="cc"){const t=calc(d);if(t.pagado>0)out.push({f:d.fecha,monto:t.pagado,desc:`${d.num} · ${d.cliente.nombre}${d.estado==="pagado"?"":" (abono)"}`})}
+    else if(d.tipo==="rc"&&!/^Pago de la cuenta/.test(d.ref||""))out.push({f:d.fecha,monto:calc(d).total,desc:`Recibo ${d.num} · ${d.cliente.nombre}`});
+  });return out;
 }
-function vCobrar(){return vRows().filter(r=>r.t==="cc"&&r.e!=="pagado"&&r.sal>0)}
-function vCotPend(){return vRows().filter(r=>r.t==="cot"&&r.e==="pendiente")}
-async function importVortice(file){
-  let b;try{b=JSON.parse(await file.text())}catch(e){toast("Ese archivo no es una copia de Vortice");return}
-  if(!b||b.app!=="vortice-docs"||!Array.isArray(b.DOCS)){toast("Ese archivo no es una copia de Vortice");return}
-  const calc=d=>{const sub=(d.items||[]).reduce((a,it)=>a+num(it.c)*num(it.p),0);const desc=sub*num(d.desc)/100,base=sub-desc;const iva=d.ivaOn?base*num(d.ivaPct)/100:0,total=base+iva;const abono=d.tipo==="rc"?total:num(d.abono);const pag=d.estado==="pagado"?total:Math.min(abono,total);return {total,pag,saldo:Math.max(total-pag,0)}};
-  const rows=b.DOCS.map(d=>{const t=calc(d);const c=d.cliente||{};return {t:d.tipo,n:d.num||"",f:d.fecha||today(),c:c.nombre||"",tel:c.tel||"",dir:c.dir||"",tot:Math.round(t.total),pag:Math.round(t.pag),sal:Math.round(t.saldo),e:d.estado||"",ref:(d.ref||"").slice(0,80),it:((d.items||[])[0]||{}).d?String(d.items[0].d).slice(0,70):""}});
-  const S=b.S||{};
-  const clients=(b.CLI||[]).map(c=>({n:c.nombre||"",tel:c.tel||"",dir:c.dir||""})).filter(c=>c.n);
-  rows.forEach(r=>{if(r.c&&!clients.some(c=>c.n.toLowerCase()===r.c.toLowerCase()))clients.push({n:r.c,tel:r.tel,dir:r.dir})});
-  const CH=500,chunks=[];for(let i=0;i<rows.length;i+=CH)chunks.push(rows.slice(i,i+CH));
-  const old=D.vortice.filter(x=>/^d\d+$/.test(x.id)).map(x=>x.id);
-  await put("vortice",{id:"info",fecha:new Date().toISOString(),copia:b.fecha||"",empresa:S.empresa||"",tel:S.tel||"",ciudad:S.ciudad||"",pago:S.pago||"",nDocs:rows.length,clients:clients.slice(0,1500)});
-  for(let i=0;i<chunks.length;i++)await put("vortice",{id:"d"+i,rows:chunks[i]});
-  for(const id of old)if(+id.slice(1)>=chunks.length)await del("vortice",id);
-  if(S.empresa&&!D.cfg.empresa){D.cfg.empresa=S.empresa;D.cfg.tel=D.cfg.tel||S.tel||"";saveCfg()}
-  toast(`Vortice sincronizado: ${rows.length} documentos ✔`);render();
-}
+function fxCobrar(){return DOCS().filter(d=>d.tipo==="cc"&&calc(d).saldo>0)}
+function fxCotPend(){return DOCS().filter(d=>d.tipo==="cot"&&d.estado==="pendiente")}
 function allClients(){
   const m=new Map();
-  vClients().forEach(c=>m.set(c.n.toLowerCase(),c));
+  CLI().forEach(c=>m.set(c.nombre.toLowerCase(),{n:c.nombre,tel:c.tel||"",dir:c.dir||""}));
   D.trabajos.forEach(j=>{if(j.cliente&&!m.has(j.cliente.toLowerCase()))m.set(j.cliente.toLowerCase(),{n:j.cliente,tel:j.tel||"",dir:j.dir||""})});
   return [...m.values()].sort((a,b)=>a.n.localeCompare(b.n));
 }
+function empresa(){return S.empresa||"Vortice E&C"}
 
 /* ================= finanzas: cálculos ================= */
 function incluirV(){return D.cfg.incluirV!==false}
 function monthData(k){
   const ms=D.movs.filter(m=>mk(m.fecha||"")===k);
   let ing=ms.filter(m=>m.tipo==="ingreso").reduce((a,m)=>a+num(m.monto),0);
-  const vs=incluirV()?vSales().filter(s=>mk(s.f)===k):[];
+  const vs=incluirV()?fxSales().filter(s=>mk(s.f)===k):[];
   const ingV=vs.reduce((a,s)=>a+s.monto,0);
   const costo=ms.filter(m=>m.tipo==="egreso"&&clase(m.cat)==="costo").reduce((a,m)=>a+num(m.monto),0);
   const gasto=ms.filter(m=>m.tipo==="egreso"&&clase(m.cat)!=="costo").reduce((a,m)=>a+num(m.monto),0);
@@ -389,16 +428,17 @@ let SUB=null; // vista interna: {kind:"chat",id}
 const UI={eqFilter:"todos",agDay:today(),agWeek:null,agMode:"dia",finMonth:mk(today()),finSeg:"resumen",esc:"normal"};
 $("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(b)go(b.dataset.tab)});
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(TABS.includes(h)&&h!==TAB){TAB=h;SUB=null;render()}});
-function go(t,sub){if(busy&&ctl)ctl.abort();TAB=t;SUB=sub||null;try{if(location.hash.slice(1)!==t)location.hash=t}catch(e){}render();window.scrollTo(0,0)}
-$("#hBack").onclick=()=>{SUB=null;render();window.scrollTo(0,0)};
+function go(t,sub){if(busy&&ctl)ctl.abort();TAB=t;SUB=sub||null;FX_BACK=null;try{if(location.hash.slice(1)!==t)location.hash=t}catch(e){}render();window.scrollTo(0,0)}
+$("#hBack").onclick=()=>{if(SUB&&SUB.kind==="fx"&&FX_BACK){const f=FX_BACK;f()}else{SUB=null;FX_BACK=null;render()}window.scrollTo(0,0)};
 function paintHead(){
-  const emp=D.cfg.empresa||"Vortice E&C";
+  const emp=empresa();
   $("#hLogo").textContent=(emp.trim()[0]||"V").toUpperCase();
   if(!SUB){$("#hTitle").innerHTML=`${esc(TITLES[TAB])}<small id="hSub">${esc(emp)}</small>`;$("#hBack").hidden=true;$("#hLogo").hidden=false}
 }
-const TITLES={inicio:"Vortice Taller",asistente:"Asistente técnico",agenda:"Agenda de trabajos",finanzas:"Finanzas",facturas:"Facturas · Vortice Docs"};
+const TITLES={inicio:"Vortice Taller",asistente:"Asistente técnico",agenda:"Agenda de trabajos",finanzas:"Finanzas",facturas:"Facturas"};
 function render(){
   document.querySelectorAll("#tabs [data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab===TAB));
+  if(SUB&&SUB.kind==="fx"){document.querySelectorAll("#tabs [data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab===TAB));return}
   const chat=SUB&&SUB.kind==="chat";
   $("#tabs").hidden=!!chat;$("#composer").hidden=!chat;
   paintHead();
@@ -431,8 +471,7 @@ const ACT={
   jobState:b=>{const j=D.trabajos.find(x=>x.id===b.dataset.id);if(!j)return;const order=["programado","confirmado","en_curso","terminado"];const i=order.indexOf(j.estado);j.estado=order[Math.min(i+1,order.length-1)];put("trabajos",j);toast("Estado: "+estN(j.estado));render()},
   newMov:b=>movForm(null,b.dataset.t),
   editMov:b=>movForm(D.movs.find(m=>m.id===b.dataset.id)),
-  importV:()=>pickFile(".json,application/json",importVortice),
-  cobrar:b=>{const r=vRows().find(x=>x.n===b.dataset.n);if(r)cobroSheet(r)}
+  newFx:b=>{go("facturas");edit(newDoc(b.dataset.t||"cc"))}
 };
 document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(!b)return;const f=ACT[b.dataset.act];if(f){e.preventDefault();f(b,e)}});
 function pickFile(accept,cb){const i=$("#fileIn");i.accept=accept;i.multiple=false;i.value="";i.onchange=()=>i.files[0]&&cb(i.files[0]);i.click()}
@@ -442,7 +481,7 @@ function vInicio(V){
   const t=today(),m=monthData(mk(t));
   const hoy=D.trabajos.filter(j=>j.fecha===t&&j.estado!=="cancelado").sort((a,b)=>(a.hora||"").localeCompare(b.hora||""));
   const prox=D.trabajos.filter(j=>j.fecha>t&&j.estado!=="cancelado").sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora)).slice(0,3);
-  const cob=vCobrar().reduce((a,r)=>a+r.sal,0);
+  const cob=fxCobrar().reduce((a,d)=>a+calc(d).saldo,0);
   const cons=[...D.consultas].sort((a,b)=>(b.upd||0)-(a.upd||0)).slice(0,3);
   const d=new Date();const sal=d.getHours()<12?"Buenos días":d.getHours()<19?"Buenas tardes":"Buenas noches";
   V.innerHTML=`<div class="view">
@@ -452,14 +491,14 @@ function vInicio(V){
    <button type="button" data-act="newCons">🧠<span>Consultar falla</span></button>
    <button type="button" data-act="newJob">📅<span>Agendar trabajo</span></button>
    <button type="button" data-act="newMov" data-t="egreso">💸<span>Registrar gasto</span></button>
-   <button type="button" data-act="newMov" data-t="ingreso">💵<span>Registrar ingreso</span></button>
+   <button type="button" data-act="newFx" data-t="cc">🧾<span>Cuenta de cobro</span></button>
   </div>
   <h3>${esc(mkName(mk(t)))}</h3>
   <div class="kpis">
    <div class="kpi"><small>Ingresos</small><b>${money(m.ing)}</b></div>
    <div class="kpi"><small>Costos + gastos</small><b>${money(m.egr)}</b></div>
    <div class="kpi"><small>Utilidad</small><b class="${m.util>=0?"up":"down"}">${money(m.util)}</b></div>
-   <div class="kpi"><small>Por cobrar (Vortice)</small><b style="color:var(--warn)">${money(cob)}</b></div>
+   <div class="kpi"><small>Por cobrar</small><b style="color:var(--warn)">${money(cob)}</b></div>
   </div>
   <h3>Hoy</h3>
   ${hoy.length?`<div class="list">${hoy.map(jobCard).join("")}</div>`:`<div class="empty"><b>Día libre en la agenda</b>Agenda un trabajo y avísale al cliente por WhatsApp.<div style="margin-top:10px"><button class="btn p sm" type="button" data-act="newJob">＋ Agendar trabajo</button></div></div>`}
@@ -691,13 +730,13 @@ function jobForm(j,pre){
    <label class="f">Valor estimado<input id="jV" inputmode="numeric" value="${j.valor?esc(Math.round(num(j.valor)).toLocaleString("es-CO")):""}" placeholder="$ 0"></label>
    <label class="f">Notas<textarea id="jN" placeholder="Qué llevar, falla reportada, acceso…">${esc(j.notas)}</textarea></label>
    <button class="btn p w" type="button" id="jSave">${isNew?"Guardar y avisar al cliente":"Guardar cambios"}</button>
-   ${!isNew&&j.estado==="terminado"&&num(j.valor)>0&&!j.ingreso?`<button class="btn g w" type="button" id="jIng">💵 Registrar ${money(j.valor)} como ingreso</button>`:""}
+   ${!isNew&&j.estado==="terminado"?`<button class="btn g w" type="button" id="jCC">🧾 Hacer cuenta de cobro${num(j.valor)?" por "+money(j.valor):""}</button>`:""}
    ${!isNew?`<button class="btn d w" type="button" id="jDel">Eliminar trabajo</button>`:""}</div>`,pan=>{
     const g=id=>pan.querySelector("#"+id);
     g("jC").addEventListener("change",()=>{const c=cl.find(x=>x.n.toLowerCase()===g("jC").value.trim().toLowerCase());if(c){if(!g("jT").value)g("jT").value=c.tel||"";if(!g("jD").value)g("jD").value=c.dir||""}});
     const read=()=>Object.assign(j,{cliente:g("jC").value.trim(),tel:g("jT").value.trim(),dir:g("jD").value.trim(),fecha:g("jF").value||today(),hora:g("jH").value,equipo:g("jQ").value,servicio:g("jS").value,tecnico:g("jK").value.trim(),dur:g("jR").value.trim(),valor:num(g("jV").value)||"",notas:g("jN").value.trim(),estado:g("jE").value});
-    g("jSave").onclick=()=>{read();if(!j.cliente){toast("Escribe el cliente");g("jC").focus();return}put("trabajos",j);UI.agDay=j.fecha;UI.agWeek=null;toast(isNew?"Trabajo agendado ✔":"Guardado ✔");if(isNew){sheetOpen=false;notifySheet(j,"conf")}else closeSheet()};
-    if(g("jIng"))g("jIng").onclick=()=>{read();const m={id:uid(),tipo:"ingreso",cat:j.servicio==="Instalación"?"Instalación":j.servicio==="Mantenimiento preventivo"?"Mantenimiento":"Servicio técnico",monto:num(j.valor),fecha:j.fecha,desc:`${j.servicio} · ${j.cliente}`};put("movs",m);j.ingreso=m.id;put("trabajos",j);toast("Ingreso registrado ✔");closeSheet()};
+    g("jSave").onclick=()=>{read();if(!j.cliente){toast("Escribe el cliente");g("jC").focus();return}put("trabajos",j);upsertClient({nombre:j.cliente,tel:j.tel,dir:j.dir});UI.agDay=j.fecha;UI.agWeek=null;toast(isNew?"Trabajo agendado ✔":"Guardado ✔");if(isNew){sheetOpen=false;notifySheet(j,"conf")}else closeSheet()};
+    if(g("jCC"))g("jCC").onclick=()=>{read();put("trabajos",j);$("#sheetRoot").innerHTML="";sheetOpen=false;const c=CLI().find(x=>x.nombre.toLowerCase()===j.cliente.toLowerCase())||{nombre:j.cliente,tel:j.tel,dir:j.dir};const n=newDoc("cc",c);n.items=[{d:`${j.servicio||"Servicio"} · ${eq(j.equipo).n}${j.notas?" — "+j.notas:""}`,c:1,p:num(j.valor)||0}];TAB="facturas";try{location.hash="facturas"}catch(e){}edit(n);render()};
     if(g("jDel"))g("jDel").onclick=()=>{const b=g("jDel");if(b.dataset.sure){del("trabajos",j.id);toast("Trabajo eliminado");closeSheet()}else{b.dataset.sure="1";b.textContent="¿Seguro? Toca otra vez para eliminar"}};
   });
 }
@@ -706,10 +745,10 @@ const TPL=[
  {id:"fin",i:"🛠️",n:"Terminado"},{id:"rep",i:"🔁",n:"Reprogramar"},{id:"seg",i:"⭐",n:"Seguimiento"}
 ];
 function tplText(id,j){
-  const emp=D.cfg.empresa||"Vortice E&C";const nom=(j.cliente||"").split(" ")[0]||"";const e=eq(j.equipo);
+  const emp=empresa();const nom=(j.cliente||"").split(" ")[0]||"";const e=eq(j.equipo);
   const L=(ic,k,v)=>v?`${ic} *${k}:* ${v}\n`:"";
   const det=L("📅","Fecha",j.fecha?longD(j.fecha).replace(/^./,c=>c.toUpperCase()):"")+L("🕐","Hora",hora12(j.hora))+L("🛠️","Servicio",j.servicio)+L(e.i,"Equipo",e.n)+L("📍","Dirección",j.dir)+L("👨‍🔧","Técnico",j.tecnico)+(num(j.valor)?L("💵","Valor estimado",money(j.valor)):"");
-  const firma=`\n— *${emp}*${D.cfg.tel?"\n📞 "+D.cfg.tel:""}`;
+  const firma=`\n— *${emp}*${S.tel?"\n📞 "+S.tel:""}`;
   const cuando=j.fecha===today()?"hoy":j.fecha===addDays(today(),1)?"mañana":longD(j.fecha);
   switch(id){
    case "conf":return `✅ *Servicio agendado*\n\nHola ${nom} 👋, tu servicio quedó programado:\n\n${det}\n📝 Ten el equipo despejado y con acceso a la toma eléctrica.\n🔁 Si necesitas cambiar la hora, responde este mensaje.\n\n¡Gracias por confiar en nosotros! 🙌${firma}`;
@@ -760,10 +799,10 @@ function vFinanzas(V){
     const proj=k===mk(today())&&pr.ok?pr.rows.slice(1):[];
     const cats=Object.entries(m.ms.filter(x=>x.tipo==="egreso").reduce((a,x)=>{a[x.cat]=(a[x.cat]||0)+num(x.monto);return a},{})).sort((a,b)=>b[1]-a[1]);
     const maxC=cats.length?cats[0][1]:1;
-    const cob=vCobrar().reduce((a,r)=>a+r.sal,0),cot=vCotPend().reduce((a,r)=>a+r.tot,0);
+    const cob=fxCobrar().reduce((a,d)=>a+calc(d).saldo,0),cot=fxCotPend().reduce((a,d)=>a+calc(d).total,0);
     B.innerHTML=`
     <div class="kpis">
-     <div class="kpi"><small>💵 Ventas / ingresos</small><b>${money(m.ing)}</b>${dI!=null?`<i class="${dI>=0?"up":"down"}">${dI>=0?"▲":"▼"} ${Math.abs(dI)}% vs mes anterior</i>`:`<i class="muted">${m.ingV?"incluye Vortice":"&nbsp;"}</i>`}</div>
+     <div class="kpi"><small>💵 Ventas / ingresos</small><b>${money(m.ing)}</b>${dI!=null?`<i class="${dI>=0?"up":"down"}">${dI>=0?"▲":"▼"} ${Math.abs(dI)}% vs mes anterior</i>`:`<i class="muted">${m.ingV?"incluye "+short(m.ingV)+" de facturas":"&nbsp;"}</i>`}</div>
      <div class="kpi"><small>🧰 Costos directos</small><b style="color:var(--cost)">${money(m.costo)}</b><i class="muted">materiales, gas, ayudantes</i></div>
      <div class="kpi"><small>🏠 Gastos fijos</small><b style="color:var(--warn)">${money(m.gasto)}</b><i class="muted">operación del taller</i></div>
      <div class="kpi"><small>📈 Utilidad neta</small><b class="${m.util>=0?"up":"down"}">${money(m.util)}</b><i class="muted">margen ${m.ing?Math.round(m.margen):0}%</i></div>
@@ -773,18 +812,18 @@ function vFinanzas(V){
      <div class="chart" style="margin-top:8px">${barChart(series,proj,k)}</div></div>
     <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b>🔮 Proyección próximos 3 meses</b>
      <div class="chips" id="escC"><button class="chip ${UI.esc==="cons"?"on":""}" data-e="cons" type="button">Conservador</button><button class="chip ${UI.esc==="normal"?"on":""}" data-e="normal" type="button">Normal</button><button class="chip ${UI.esc==="opt"?"on":""}" data-e="opt" type="button">Optimista</button></div></div>
-     ${pr.ok?`<div style="overflow-x:auto;margin-top:8px"><table class="t"><thead><tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Utilidad</th></tr></thead><tbody>${pr.rows.map(r=>`<tr><td>${esc(mkName(r.k))}</td><td>${money(r.ing)}</td><td>${money(r.egr)}</td><td class="${r.util>=0?"up":"down"}">${money(r.util)}</td></tr>`).join("")}</tbody></table></div>
+     ${pr.ok?`<div style="overflow-x:auto;margin-top:8px"><table class="t"><thead><tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Utilidad</th></tr></thead><tbody>${pr.rows.map(r=>`<tr><td>${esc(mkName(r.k,true))} ${esc(r.k.slice(0,4))}</td><td>${esc(short(r.ing))}</td><td>${esc(short(r.egr))}</td><td class="${r.util>=0?"up":"down"}">${esc(short(r.util))}</td></tr>`).join("")}</tbody></table></div>
       <div class="muted" style="margin-top:8px">Calculado con la tendencia de tus últimos ${pr.hist.length} meses con movimientos. Conservador baja las ventas 15 %; optimista las sube 15 %.</div>`
-     :`<div class="empty" style="margin-top:8px"><b>Faltan datos para proyectar</b>Registra ingresos y gastos de al menos 2 meses anteriores (o sincroniza Vortice) y aquí verás la proyección.</div>`}
-     <div class="grid2" style="margin-top:10px"><div class="kpi"><small>⏳ Por cobrar (Vortice)</small><b style="color:var(--warn)">${money(cob)}</b></div><div class="kpi"><small>📝 Cotizaciones pendientes</small><b>${money(cot)}</b></div></div></div>
+     :`<div class="empty" style="margin-top:8px"><b>Faltan datos para proyectar</b>Registra ingresos y gastos de al menos 2 meses anteriores (o crea cuentas de cobro y recibos en Facturas) y aquí verás la proyección.</div>`}
+     <div class="grid2" style="margin-top:10px"><div class="kpi"><small>⏳ Por cobrar</small><b style="color:var(--warn)">${money(cob)}</b></div><div class="kpi"><small>📝 Cotizaciones pendientes</small><b>${money(cot)}</b></div></div></div>
     <div class="card"><b>¿En qué se va la plata?</b>
      ${cats.length?`<div class="hbar" style="margin-top:10px">${cats.map(([c,v])=>`<div><span>${esc(c)}</span><b>${money(v)}</b><span class="t"><i style="width:${Math.max(3,v/maxC*100)}%;background:${clase(c)==="costo"?"var(--cost)":"var(--warn)"}"></i></span></div>`).join("")}</div>`:`<div class="muted" style="margin-top:6px">Sin gastos registrados este mes.</div>`}</div>
     <div class="grid2"><button class="btn g" type="button" data-act="newMov" data-t="ingreso">＋ Ingreso</button><button class="btn" type="button" data-act="newMov" data-t="egreso" style="border-color:var(--cost);color:var(--cost)">＋ Gasto / costo</button></div>
-    <label class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer"><span><b>Incluir ventas de Vortice Docs</b><span class="muted" style="display:block">Suma recibos de pago y cuentas pagadas de la copia sincronizada.</span></span><input type="checkbox" id="incV" ${incluirV()?"checked":""} style="width:auto;transform:scale(1.4)"></label>`;
+    <label class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer"><span><b>Incluir cobros de Facturas</b><span class="muted" style="display:block">Suma lo cobrado en cuentas de cobro (con abonos) y recibos de pago.</span></span><input type="checkbox" id="incV" ${incluirV()?"checked":""} style="width:auto;transform:scale(1.4)"></label>`;
     $("#escC").onclick=e=>{const b=e.target.closest("[data-e]");if(b){UI.esc=b.dataset.e;render()}};
     $("#incV").onchange=e=>{D.cfg.incluirV=e.target.checked;saveCfg();render()};
   }else if(seg==="movs"){
-    const rows=[...m.ms.map(x=>({...x,src:"m"})),...m.vs.map(s=>({tipo:"ingreso",cat:"Vortice Docs",monto:s.monto,fecha:s.f,desc:s.desc,src:"v"}))].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+    const rows=[...m.ms.map(x=>({...x,src:"m"})),...m.vs.map(s=>({tipo:"ingreso",cat:"Facturas",monto:s.monto,fecha:s.f,desc:s.desc,src:"v"}))].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
     B.innerHTML=`<div class="grid2"><button class="btn g" type="button" data-act="newMov" data-t="ingreso">＋ Ingreso</button><button class="btn" type="button" data-act="newMov" data-t="egreso" style="border-color:var(--cost);color:var(--cost)">＋ Gasto / costo</button></div>
     <div class="card"><div class="tot"><span>Ingresos</span><b class="up">${money(m.ing)}</b></div><div class="tot"><span>Costos directos</span><b style="color:var(--cost)">− ${money(m.costo)}</b></div><div class="tot"><span>Gastos fijos</span><b style="color:var(--warn)">− ${money(m.gasto)}</b></div><div class="tot big"><span>Utilidad</span><span class="${m.util>=0?"up":"down"}">${money(m.util)}</span></div></div>
     ${rows.length?`<div class="list">${rows.map(r=>{const c=r.src==="v"?"ingreso":clase(r.cat);const ic=r.src==="v"?"🧾":c==="ingreso"?"💵":c==="costo"?"🧰":"🏠";
@@ -852,51 +891,502 @@ function vCotizar(B){
   B.querySelector("#cCopy").onclick=()=>{const c=calc();const lines=s.mat.filter(x=>x.d||num(x.v)).map(x=>`• ${x.d||"Material"}: ${money(num(x.v))}`);copyText(`COTIZACIÓN\n${lines.length?"Materiales:\n"+lines.join("\n")+"\n":""}• Mano de obra: ${money(c.mo)}\n${c.tr?"• Transporte: "+money(c.tr)+"\n":""}${c.imp?"• Imprevistos: "+money(c.imp)+"\n":""}\nPrecio${s.iva?" (IVA incluido)":""}: ${money(c.precio+c.iva)}`)};
 }
 
-/* ================= FACTURAS (Vortice Docs) ================= */
-function vFacturas(V){
-  const info=vInfo();const rows=vRows();
-  const cob=vCobrar().sort((a,b)=>b.sal-a.sal),cot=vCotPend().sort((a,b)=>(b.f||"").localeCompare(a.f||""));
-  const k=mk(today());const ventasMes=vSales().filter(s=>mk(s.f)===k).reduce((a,s)=>a+s.monto,0);
-  V.innerHTML=`<div class="view">
-   <div class="hero" style="display:grid;gap:10px"><div style="display:flex;gap:12px;align-items:center"><div class="logo" style="width:46px;height:46px;font-size:1.2rem">🧾</div><div><h2>Vortice Docs</h2><div class="muted">Cotizaciones, cuentas de cobro y recibos con tu logo y firma.</div></div></div>
-    <a class="btn p w" href="https://vortice-ec.netlify.app/app/" target="_blank" rel="noopener">Abrir Vortice Docs ↗</a></div>
-   <div class="card fg"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><b>🔄 Sincronizar con Vortice</b>${info?`<span class="pill terminado">Última: ${esc(fmtD(info.fecha.slice(0,10)))}</span>`:`<span class="pill en_curso">Sin sincronizar</span>`}</div>
-    <div class="muted">Así tus ventas, cuentas por cobrar y clientes aparecen aquí, en Finanzas y en la Agenda:</div>
-    <div class="list">
-     <div class="row"><span class="em">1</span><span class="tx" style="white-space:normal"><b style="white-space:normal">En Vortice Docs ve a ⚙️ Ajustes</b><small style="white-space:normal">Toca “💾 Hacer copia de seguridad” y guarda el archivo en el celular.</small></span></div>
-     <div class="row"><span class="em">2</span><span class="tx" style="white-space:normal"><b style="white-space:normal">Vuelve aquí y carga la copia</b><small style="white-space:normal">Repite cuando quieras actualizar. Tus documentos en Vortice no se modifican.</small></span></div>
-    </div>
-    <button class="btn g w" type="button" data-act="importV">📂 Cargar copia de Vortice</button></div>
-   ${info?`<div class="kpis">
-     <div class="kpi"><small>Documentos</small><b>${rows.length}</b></div><div class="kpi"><small>Clientes</small><b>${vClients().length}</b></div>
-     <div class="kpi"><small>Ventas ${esc(mkName(k,true))}</small><b class="up">${money(ventasMes)}</b></div><div class="kpi"><small>Por cobrar</small><b style="color:var(--warn)">${money(cob.reduce((a,r)=>a+r.sal,0))}</b></div></div>
-    <h3>⏳ Cuentas por cobrar</h3>
-    ${cob.length?`<div class="list">${cob.slice(0,30).map(r=>`<div class="row"><span class="em">💵</span><span class="tx"><b>${esc(r.c||"Sin cliente")}</b><small>${esc(r.n)} · ${esc(fmtD(r.f))}${r.it?" · "+esc(r.it):""}</small></span><span class="rt" style="color:var(--warn)">${money(r.sal)}<small><button class="btn wa sm" type="button" data-act="cobrar" data-n="${esc(r.n)}" style="margin-top:4px">📲 Cobrar</button></small></span></div>`).join("")}</div>`:`<div class="empty"><b>Todo cobrado 🎉</b>No hay cuentas de cobro pendientes.</div>`}
-    <h3>📝 Cotizaciones por cerrar</h3>
-    ${cot.length?`<div class="list">${cot.slice(0,30).map(r=>`<div class="row"><span class="em">🧾</span><span class="tx"><b>${esc(r.c||"Sin cliente")}</b><small>${esc(r.n)} · ${esc(fmtD(r.f))}${r.it?" · "+esc(r.it):""}</small></span><span class="rt">${money(r.tot)}<small><button class="btn sm" type="button" data-act="newJob" data-pre='${esc(JSON.stringify({cliente:r.c,tel:r.tel,dir:r.dir,notas:(r.n+" "+(r.it||"")).trim(),valor:r.tot}))}' style="margin-top:4px">📅 Agendar</button></small></span></div>`).join("")}</div>`:`<div class="empty"><b>Sin cotizaciones pendientes</b>Las cotizaciones en estado “pendiente” aparecen aquí para hacerles seguimiento.</div>`}`
-   :`<div class="empty"><b>Aún no has cargado datos de Vortice</b>Sigue los dos pasos de arriba. Toma menos de un minuto.</div>`}
-  </div>`;
+/* ================= FACTURAS (Vortice Docs dentro de la app) ================= */
+const FX={tab:"nuevo",filter:"todos",q:"",mes:mk(today())};
+let FX_BACK=null,CUR=null,RENDER=0;
+const V=()=>$("#fx")||$("#view");
+function fxHome(){SUB=null;FX_BACK=null;render();window.scrollTo(0,0)}
+function setHead(t,back){
+  RENDER++;SUB={kind:"fx"};FX_BACK=back||fxHome;
+  $("#hBack").hidden=false;$("#hLogo").hidden=true;$("#hTitle").innerHTML=`${esc(t)}<small>Facturas</small>`;
+  $("#view").innerHTML="";window.scrollTo(0,0);
 }
-function cobroSheet(r){
-  const emp=D.cfg.empresa||(vInfo()||{}).empresa||"Vortice E&C";const pago=(vInfo()||{}).pago||"";const nom=(r.c||"").split(" ")[0];
-  const txt=`💵 *Recordatorio de pago*\n\nHola ${nom} 👋, te escribimos de *${emp}*.\n\n🧾 *Cuenta de cobro:* ${r.n}\n📅 *Fecha:* ${fmtD(r.f)}\n${r.it?"🛠️ *Servicio:* "+r.it+"\n":""}💰 *Saldo pendiente:* ${money(r.sal)}\n${pago?"\n🏦 *Datos para el pago:*\n"+pago+"\n":""}\n🙏 Cuando realices el pago, envíanos el comprobante por aquí.\n\n¡Gracias! 🙌`;
-  const tel=phone(r.tel);
-  sheet("Cobrar por WhatsApp",`<textarea id="cbT" style="min-height:240px">${esc(txt)}</textarea><div class="grid2"><a class="btn wa" id="cbA" target="_blank" rel="noopener" href="#">📲 Enviar</a><button class="btn" type="button" id="cbC">📋 Copiar</button></div>`,pan=>{
-    const T=pan.querySelector("#cbT"),A=pan.querySelector("#cbA");const p=()=>A.href=(tel?"https://wa.me/"+tel:"https://wa.me/")+"?text="+encodeURIComponent(T.value);p();T.oninput=p;
-    pan.querySelector("#cbC").onclick=()=>copyText(T.value);
-  });
+let DL=null;(async()=>{try{DL=await window.claude?.use("downloads")}catch(e){}})();
+async function shareFile(file){
+  if(!DL){toast("Abre este enlace en claude.ai con tu cuenta para guardar archivos");return}
+  try{const r=await DL.save({filename:file.name,data:file});if(r&&r.status==="saved")toast("Listo: "+file.name)}
+  catch(e){const c=e&&e.code;if(c==="declined")return;
+    toast(c==="host_unavailable"?"Esta app no guarda archivos: abre el enlace en el navegador":c==="rate_limited"?"Espera un momento e intenta de nuevo":"No se pudo guardar el archivo")}
+}
+function twoTap(btn,label,fn){btn.onclick=()=>{if(btn.dataset.sure){fn()}else{btn.dataset.sure="1";btn.textContent=label;setTimeout(()=>{if(btn.isConnected){delete btn.dataset.sure}},4000)}}}
+function rowDoc(d){const t=calc(d);
+  return `<button class="row" type="button" data-doc="${esc(d.id)}"><span class="em">${TIPOS[d.tipo].i}</span><span class="tx"><b>${esc(d.num)} · ${esc(d.cliente.nombre||"Sin cliente")}</b><small>${esc(TIPOS[d.tipo].n)} · ${esc(fmtD(d.fecha))}</small></span><span class="rt">${money(t.total)}<small><span class="pill ${esc(d.estado)}">${esc(d.estado)}</span></small></span></button>`}
+function bindCommon(root){
+  root=root||$("#view");
+  root.querySelectorAll("[data-doc]").forEach(a=>a.onclick=e=>{e.preventDefault();preview(D.fdocs.find(x=>x.id===a.dataset.doc))});
+  root.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{FX.tab=b.dataset.go;render()});
+}
+function vFacturas(Vw){
+  const t=FX.tab;
+  Vw.innerHTML=`<div class="view"><div class="seg" id="fxSeg">${[["nuevo","➕ Nuevo"],["docs","📄 Docs"],["clientes","👤 Clientes"],["ajustes","⚙️ Ajustes"]].map(([k,n])=>`<button type="button" data-t="${k}" class="${k===t?"on":""}">${n}</button>`).join("")}</div><div id="fx" class="view"></div></div>`;
+  $("#fxSeg").onclick=e=>{const b=e.target.closest("[data-t]");if(b){FX.tab=b.dataset.t;render();window.scrollTo(0,0)}};
+  ({nuevo:vNuevo,docs:vDocs,clientes:vClientes,ajustes:vAjustes})[t]();
 }
 
-/* ================= AJUSTES ================= */
+/* Nuevo */
+function vNuevo(){
+  const ult=DOCS().slice(0,3);const cob=fxCobrar().reduce((a,d)=>a+calc(d).saldo,0);
+  V().innerHTML=`<h2>¿Qué vas a hacer?</h2>
+  <div class="list">${Object.entries(TIPOS).map(([k,t])=>`<button class="row" type="button" data-new="${k}"><span class="em">${t.i}</span><span class="tx"><b>${esc(t.n)}</b><small>${esc(t.d)}</small></span><span class="rt" style="color:var(--brand2);font-size:1.3rem">›</span></button>`).join("")}</div>
+  ${cob?`<button class="row" type="button" data-go="docs" id="goPend"><span class="em">⏳</span><span class="tx"><b>Te deben ${money(cob)}</b><small>${fxCobrar().length} cuenta(s) de cobro con saldo</small></span><span class="rt" style="color:var(--warn)">Ver ›</span></button>`:""}
+  ${!S.nit?`<div class="card" style="border-color:#5a4a1a"><b>Completa tus datos</b><p class="muted" style="margin:4px 0 10px">Pon tu NIT, datos para pagos y firma en <b>Ajustes</b> para que salgan en los documentos.</p><button class="btn sm" type="button" data-go="ajustes">Ir a Ajustes</button></div>`:""}
+  ${!D.fdocs.length?`<div class="card"><b>¿Ya tenías documentos en Vortice Docs?</b><p class="muted" style="margin:4px 0 10px">Pásalos una sola vez: en Vortice ve a ⚙️ Ajustes → “💾 Hacer copia de seguridad”, y aquí en ⚙️ Ajustes → “📂 Restaurar una copia”.</p><button class="btn sm" type="button" data-go="ajustes">Ir a Ajustes</button></div>`:""}
+  ${ult.length?`<h3>Últimos documentos</h3><div class="list">${ult.map(rowDoc).join("")}</div>`:""}`;
+  V().querySelectorAll("[data-new]").forEach(b=>b.onclick=()=>edit(newDoc(b.dataset.new)));
+  const gp=$("#goPend");if(gp)gp.addEventListener("click",()=>{FX.filter="pend"});
+  bindCommon(V());
+}
+
+/* Editor */
+function edit(doc){
+  CUR=clone(doc);const isNew=!D.fdocs.some(x=>x.id===doc.id);
+  setHead(isNew?"Nuevo: "+TIPOS[doc.tipo].n:"Editar "+doc.num,()=>isNew?fxHome():preview(D.fdocs.find(x=>x.id===doc.id)));
+  drawEditor();
+}
+function drawEditor(){
+  const d=CUR;const estados=d.tipo==="cot"?["pendiente","aceptada","rechazada"]:["pendiente","pagado"];
+  const cl=CLI();
+  $("#view").innerHTML=`<div class="view">
+  <div class="card fg">
+    <div class="fg2"><label class="f">Tipo<select data-k="tipo">${Object.entries(TIPOS).map(([k,t])=>`<option value="${k}" ${k===d.tipo?"selected":""}>${esc(t.n)}</option>`).join("")}</select></label>
+    <label class="f">Número<input data-k="num" value="${esc(d.num)}" placeholder="${esc(S.pref[d.tipo])}-${String(S.next[d.tipo]).padStart(4,"0")} (auto)"></label></div>
+    <label class="f">Título que sale en el documento<input data-k="titulo" value="${esc(d.titulo)}"></label>
+    <div class="fg2"><label class="f">Fecha<input type="date" data-k="fecha" value="${esc(d.fecha)}"></label>
+    ${d.tipo==="cot"?`<label class="f">Válida por (días)<input inputmode="numeric" data-k="validez" data-n value="${esc(d.validez)}"></label>`:`<label class="f">Estado<select data-k="estado">${estados.map(e=>`<option ${e===d.estado?"selected":""}>${e}</option>`).join("")}</select></label>`}</div>
+    ${d.tipo==="cot"?`<label class="f">Estado<select data-k="estado">${estados.map(e=>`<option ${e===d.estado?"selected":""}>${e}</option>`).join("")}</select></label>`:""}
+  </div>
+  <h3>Cliente</h3>
+  <div class="card fg">
+    <label class="f">Nombre o empresa<input data-k="cliente.nombre" list="dlCli" value="${esc(d.cliente.nombre)}" autocomplete="off"></label>
+    <datalist id="dlCli">${cl.map(c=>`<option value="${esc(c.nombre)}"></option>`).join("")}</datalist>
+    <div class="fg2"><label class="f">CC / NIT<input data-k="cliente.doc" value="${esc(d.cliente.doc)}"></label>
+    <label class="f">Teléfono / WhatsApp<input type="tel" data-k="cliente.tel" value="${esc(d.cliente.tel)}"></label></div>
+    <label class="f">Dirección / barrio<input data-k="cliente.dir" value="${esc(d.cliente.dir)}"></label>
+    <label class="f">Correo (opcional)<input type="email" data-k="cliente.email" value="${esc(d.cliente.email)}"></label>
+  </div>
+  <h3>Servicios y productos</h3>
+  <div class="list" id="items">${d.items.map((it,i)=>`
+    <div class="item">
+      <div style="display:grid;grid-template-columns:1fr 34px;gap:6px;align-items:start"><textarea data-k="items.${i}.d" placeholder="Descripción del servicio o producto" style="min-height:52px">${esc(it.d)}</textarea><button class="x" type="button" data-del="${i}" aria-label="Quitar">✕</button></div>
+      <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.2fr;gap:8px;align-items:end"><label class="f">Cant.<input inputmode="decimal" data-k="items.${i}.c" data-n value="${esc(it.c)}"></label>
+      <label class="f">Valor unitario<input inputmode="numeric" data-k="items.${i}.p" data-n value="${it.p?esc(it.p):""}" placeholder="0"></label>
+      <div class="isub" id="sub${i}">${money(num(it.c)*num(it.p))}</div></div>
+    </div>`).join("")}</div>
+  <div class="grid2"><button class="btn sm" type="button" id="addIt">＋ Ítem</button><button class="btn sm" type="button" id="addCat">📋 Del catálogo</button></div>
+  <h3>Totales</h3>
+  <div class="card fg">
+    <div class="fg2"><label class="f">Descuento (%)<input inputmode="decimal" data-k="desc" data-n value="${d.desc?esc(d.desc):""}" placeholder="0"></label>
+    ${d.tipo==="cc"?`<label class="f">Abono recibido ($)<input inputmode="numeric" data-k="abono" data-n value="${d.abono?esc(d.abono):""}" placeholder="0"></label>`:"<div></div>"}</div>
+    <div class="sw"><span>Cobrar IVA</span><span style="display:flex;align-items:center;gap:8px"><input type="number" data-k="ivaPct" data-n value="${esc(d.ivaPct)}" style="width:76px" ${d.ivaOn?"":"disabled"}>%<input type="checkbox" data-k="ivaOn" ${d.ivaOn?"checked":""} style="width:auto;transform:scale(1.4);margin-left:6px"></span></div>
+    <div id="tots"></div>
+  </div>
+  <h3>Información adicional</h3>
+  <div class="card fg">
+    <label class="f">Forma de pago<input data-k="pago" value="${esc(d.pago)}" placeholder="Ej.: 50 % para iniciar, 50 % al entregar / Nequi / Efectivo"></label>
+    ${d.tipo==="rc"?`<label class="f">Concepto / documento que paga<input data-k="ref" value="${esc(d.ref)}" placeholder="Ej.: Pago cuenta de cobro CC-0003"></label>`:""}
+    <label class="f">Notas<textarea data-k="notas" placeholder="Detalles del trabajo, equipo, marca, capacidad…">${esc(d.notas)}</textarea></label>
+    <label class="f">Condiciones / garantía<textarea data-k="cond">${esc(d.cond)}</textarea></label>
+  </div>
+  <button class="btn p w" type="button" id="save">💾 Guardar y ver documento</button></div>`;
+  drawTots();
+  $("#view").querySelectorAll("[data-k]").forEach(el=>el.addEventListener(el.type==="checkbox"||el.tagName==="SELECT"?"change":"input",onField));
+  $("#view").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{CUR.items.splice(+b.dataset.del,1);if(!CUR.items.length)CUR.items.push({d:"",c:1,p:0});drawEditor()});
+  $("#addIt").onclick=()=>{CUR.items.push({d:"",c:1,p:0});drawEditor();const t=$("#view").querySelectorAll("#items textarea");t[t.length-1].focus()};
+  $("#addCat").onclick=pickCatalog;
+  $("#save").onclick=saveDoc;
+}
+function onField(e){
+  const el=e.target,path=el.dataset.k.split(".");
+  let v=el.type==="checkbox"?el.checked:el.value;
+  if(el.hasAttribute("data-n"))v=num(v);
+  let o=CUR;for(let i=0;i<path.length-1;i++)o=o[path[i]];
+  o[path[path.length-1]]=v;
+  if(el.dataset.k==="tipo"){CUR.titulo=TIPOS[v].h;CUR.num="";CUR.estado=v==="rc"?"pagado":"pendiente";if(v==="cot"&&!CUR.cond)CUR.cond=S.cond;return drawEditor()}
+  if(el.dataset.k==="ivaOn")return drawEditor();
+  if(el.dataset.k==="cliente.nombre"){
+    const c=CLI().find(x=>x.nombre.toLowerCase()===String(v).trim().toLowerCase());
+    if(c){["doc","tel","dir","email"].forEach(k=>{if(c[k]){CUR.cliente[k]=c[k];const f=$("#view").querySelector(`[data-k="cliente.${k}"]`);if(f)f.value=c[k]}})}
+  }
+  const m=el.dataset.k.match(/^items\.(\d+)\./);
+  if(m){const it=CUR.items[+m[1]];$("#sub"+m[1]).textContent=money(num(it.c)*num(it.p))}
+  drawTots();
+}
+function drawTots(){
+  const t=calc(CUR);
+  $("#tots").innerHTML=`<div class="tot"><span>Subtotal</span><b>${money(t.sub)}</b></div>
+  ${t.desc?`<div class="tot"><span>Descuento</span><b>− ${money(t.desc)}</b></div>`:""}
+  ${CUR.ivaOn?`<div class="tot"><span>IVA ${esc(CUR.ivaPct)}%</span><b>${money(t.iva)}</b></div>`:""}
+  <div class="tot big"><span>Total</span><span>${money(t.total)}</span></div>
+  ${CUR.tipo==="cc"&&t.abono?`<div class="tot"><span>Abono</span><b>− ${money(t.abono)}</b></div><div class="tot big"><span>Saldo</span><span style="color:var(--warn)">${money(t.saldo)}</span></div>`:""}`;
+}
+function pickCatalog(){
+  sheet("Catálogo",`<div class="muted">Toca para agregar. Edita precios y servicios en Facturas → Ajustes.</div><div class="list" id="catL">${CATL.map((c,i)=>`<button class="row" type="button" data-i="${i}"><span class="tx"><b style="white-space:normal">${esc(c.d)}</b></span><span class="rt">${c.p?money(c.p):"—"}</span></button>`).join("")||'<p class="muted">Vacío.</p>'}</div>`,pan=>{
+    pan.querySelector("#catL").onclick=e=>{const a=e.target.closest("[data-i]");if(!a)return;const c=CATL[+a.dataset.i];
+      const last=CUR.items[CUR.items.length-1];if(last&&!last.d&&!num(last.p))CUR.items.pop();
+      CUR.items.push({d:c.d,c:1,p:c.p||0});$("#sheetRoot").innerHTML="";sheetOpen=false;drawEditor();toast("Agregado: "+c.d)};
+  });
+}
+function saveDoc(){
+  const d=CUR;
+  d.items=d.items.filter(it=>String(it.d).trim()||num(it.p));
+  if(!d.items.length){d.items.push({d:"",c:1,p:0});return toast("Agrega al menos un ítem")}
+  if(!d.cliente.nombre.trim()){toast("Escribe el nombre del cliente");$("#view").querySelector('[data-k="cliente.nombre"]').focus();return}
+  if(!d.num.trim()){d.num=S.pref[d.tipo]+"-"+String(S.next[d.tipo]).padStart(4,"0");S.next[d.tipo]++;saveS()}
+  d.editado=new Date().toISOString();
+  put("fdocs",d);upsertClient(d.cliente);toast("Guardado ✔");preview(d);
+}
+
+/* Vista previa y envío */
+function waMsg(d){
+  const t=calc(d);const nom=(d.cliente.nombre||"").split(" ")[0];
+  if(d.tipo==="cc"&&t.saldo>0)return `💵 *Cuenta de cobro ${d.num}*\n\nHola ${nom} 👋, te escribimos de *${empresa()}*.\n\n📅 *Fecha:* ${fmtD(d.fecha)}\n${d.items[0]&&d.items[0].d?"🛠️ *Servicio:* "+d.items[0].d+"\n":""}💰 *Total:* ${money(t.total)}\n${t.abono?"✅ *Abonado:* "+money(t.abono)+"\n":""}⏳ *Saldo pendiente:* ${money(t.saldo)}\n${S.pago?"\n🏦 *Datos para el pago:*\n"+S.pago+"\n":""}\n🙏 Cuando realices el pago, envíanos el comprobante por aquí.\n\n¡Gracias! 🙌`;
+  if(d.tipo==="rc")return `✅ *Recibo de pago ${d.num}*\n\nHola ${nom} 👋, confirmamos que recibimos tu pago de *${money(t.total)}*.\n${d.ref?"🧾 "+d.ref+"\n":""}\n¡Gracias por confiar en *${empresa()}*! 🙌`;
+  return `🧾 *Cotización ${d.num}*\n\nHola ${nom} 👋, te comparto la cotización de *${empresa()}*:\n\n${d.items.filter(i=>i.d).slice(0,6).map(i=>"• "+i.d).join("\n")}\n\n💰 *Total:* ${money(t.total)}\n📅 *Válida hasta:* ${fmtD(addDays(d.fecha,num(d.validez)))}\n\n¿Agendamos el trabajo? Quedo atento. 🙌`;
+}
+async function preview(d){
+  if(!d)return fxHome();
+  setHead(d.num,fxHome);
+  const tk=++RENDER;const t=calc(d);const tel=phone(d.cliente.tel);
+  $("#view").innerHTML=`<div class="view">
+  <div class="prev" id="pv"><p style="color:#333;padding:30px;text-align:center">Generando documento…</p></div>
+  <div class="grid2"><button class="btn g" type="button" id="shPdf" disabled>📤 PDF</button><button class="btn" type="button" id="shImg" disabled>🖼️ Imagen</button></div>
+  <div class="muted">En la app de Claude se abre el menú para compartir (WhatsApp, correo…). En el navegador se descarga y lo adjuntas en WhatsApp.</div>
+  <a class="btn wa w" id="waTxt" target="_blank" rel="noopener" href="${(tel?"https://wa.me/"+tel:"https://wa.me/")+"?text="+encodeURIComponent(waMsg(d))}">💬 WhatsApp del cliente con mensaje</a>
+  <div class="grid2"><button class="btn" type="button" id="bEdit">✏️ Editar</button><button class="btn" type="button" id="bDup">📑 Duplicar</button></div>
+  ${d.tipo==="cot"?`<button class="btn w" type="button" id="bConv">➡️ Convertir en cuenta de cobro</button><button class="btn w" type="button" id="bAg">📅 Agendar el trabajo</button>`:""}
+  ${d.tipo==="cc"&&d.estado!=="pagado"?`<button class="btn w" type="button" id="bPaid">✅ Marcar pagada y hacer recibo</button>`:""}
+  <button class="btn d w" type="button" id="bDel">🗑️ Eliminar</button></div>`;
+  $("#bEdit").onclick=()=>edit(d);
+  $("#bDup").onclick=()=>{const n=clone(d);n.id=uid();n.num="";n.fecha=today();n.estado=n.tipo==="rc"?"pagado":"pendiente";edit(n)};
+  if($("#bConv"))$("#bConv").onclick=()=>{const n=clone(d);Object.assign(n,{id:uid(),tipo:"cc",titulo:TIPOS.cc.h,num:"",fecha:today(),estado:"pendiente",cond:"",notas:(d.notas?d.notas+"\n":"")+"Según cotización "+d.num+"."});d.estado="aceptada";put("fdocs",d);edit(n)};
+  if($("#bAg"))$("#bAg").onclick=()=>{jobForm(null,{cliente:d.cliente.nombre,tel:d.cliente.tel,dir:d.cliente.dir,valor:Math.round(t.total),notas:`${d.num} · ${(d.items[0]||{}).d||""}`.trim(),fecha:addDays(today(),1)})};
+  if($("#bPaid"))$("#bPaid").onclick=()=>{d.estado="pagado";put("fdocs",d);const n=clone(d);Object.assign(n,{id:uid(),tipo:"rc",titulo:TIPOS.rc.h,num:"",fecha:today(),estado:"pagado",abono:0,ref:"Pago de la cuenta de cobro "+d.num,cond:""});edit(n)};
+  twoTap($("#bDel"),"¿Eliminar "+d.num+"? Toca otra vez",()=>{del("fdocs",d.id);toast("Eliminado");fxHome()});
+  try{
+    const r=await renderView(viewFromDoc(d));
+    const name=(d.num+" "+d.cliente.nombre).replace(/[^\w\- áéíóúñÁÉÍÓÚÑ]/g,"").trim().replace(/\s+/g,"_");
+    const img=await canvasBlob(r.canvas,"image/jpeg",.9);const pdf=await toPdf(r.canvas,r.breaks);
+    if(tk!==RENDER)return;
+    const F={pdf:new File([pdf],name+".pdf",{type:"application/pdf"}),img:new File([img],name+".jpg",{type:"image/jpeg"})};
+    $("#pv").innerHTML=`<img src="${URL.createObjectURL(img)}" alt="Vista previa del documento">`;
+    $("#shPdf").disabled=$("#shImg").disabled=false;
+    $("#shPdf").onclick=()=>shareFile(F.pdf);$("#shImg").onclick=()=>shareFile(F.img);
+  }catch(e){if(tk===RENDER)$("#pv").innerHTML=`<p style="color:#b00;padding:20px">No se pudo generar: ${esc(e.message)}</p>`}
+}
+
+/* Dibujo del documento (igual que Vortice) */
+function viewFromDoc(d){
+  const t=calc(d);const meta=["Fecha: "+fmtD(d.fecha)];
+  if(d.tipo==="cot")meta.push("Válida hasta: "+fmtD(addDays(d.fecha,num(d.validez))));
+  const c=d.cliente;const totals=[["Subtotal",money(t.sub)]];
+  if(t.desc)totals.push([`Descuento (${num(d.desc)}%)`,"− "+money(t.desc)]);
+  if(d.ivaOn)totals.push([`IVA (${num(d.ivaPct)}%)`,money(t.iva)]);
+  totals.push([d.tipo==="rc"?"TOTAL RECIBIDO":"TOTAL",money(t.total),1]);
+  if(d.tipo==="cc"&&t.abono&&d.estado!=="pagado"){totals.push(["Abono recibido","− "+money(t.abono)]);totals.push(["SALDO A PAGAR",money(t.saldo),1])}
+  const details=[];if(d.pago)details.push("Forma de pago: "+d.pago);if(d.ref)details.push(d.ref);
+  if(d.tipo!=="rc")details.push("Estado: "+d.estado.charAt(0).toUpperCase()+d.estado.slice(1));
+  return {title:(d.titulo||TIPOS[d.tipo].h).toUpperCase(),num:"N.º "+d.num,meta,
+    clientLines:[c.nombre,c.doc&&"CC/NIT: "+c.doc,c.tel&&"Tel.: "+c.tel,c.dir,c.email].filter(Boolean),details,
+    columns:[{h:"Descripción",w:560,a:"l"},{h:"Cant.",w:110,a:"c"},{h:"Valor unitario",w:210,a:"r"},{h:"Subtotal",w:220,a:"r"}],
+    rows:d.items.map(it=>[it.d||"—",String(num(it.c)).replace(".",","),money(it.p),money(num(it.c)*num(it.p))]),
+    totals,stamp:d.estado==="pagado"?"PAGADO":(d.tipo==="cot"&&d.estado==="aceptada"?"ACEPTADA":""),
+    sections:[[d.tipo==="rc"?"":"Datos para el pago",d.tipo==="rc"?"":S.pago],["Notas",d.notas],["Condiciones y garantía",d.cond]],
+    sign:true,legal:d.tipo==="cot"?"":S.legal};
+}
+const IMG={};
+function loadImg(src){if(!src)return Promise.resolve(null);if(IMG[src])return IMG[src];return IMG[src]=new Promise(res=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>res(null);i.src=src})}
+async function renderView(v){
+  const imgs={logo:await loadImg(S.logo||LOGO_DEF),firma:await loadImg(S.firma)};
+  const m=document.createElement("canvas");m.width=1240;m.height=10;const r1=drawView(m.getContext("2d"),v,imgs);
+  const c=document.createElement("canvas");c.width=1240;c.height=Math.ceil(r1.h);const r2=drawView(c.getContext("2d"),v,imgs);
+  return {canvas:c,breaks:r2.breaks};
+}
+function wrap(ctx,text,maxW){const out=[];for(const para of String(text||"").split("\n")){let line="";for(const w of para.split(/\s+/)){const t=line?line+" "+w:w;if(ctx.measureText(t).width>maxW&&line){out.push(line);line=w}else line=t}out.push(line)}return out}
+function rrect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function drawView(ctx,v,imgs){
+  const W=1240,M=70,C=S.color||"#1f6fd1",DARK="#0f2233",MUT="#5b6b7a",F='"Helvetica Neue", Helvetica, Arial, sans-serif';
+  const font=(s,b)=>ctx.font=(b?"700 ":"400 ")+s+"px "+F;
+  const breaks=[];let y=60;
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,W,ctx.canvas.height);ctx.fillStyle=C;ctx.fillRect(0,0,W,14);
+  let ly=y;
+  if(imgs.logo){let lh=130,lw=imgs.logo.width*lh/imgs.logo.height;if(lw>500){lw=500;lh=imgs.logo.height*lw/imgs.logo.width}ctx.drawImage(imgs.logo,M,y,lw,lh);ly=y+lh+18}
+  ctx.textAlign="left";ctx.textBaseline="alphabetic";
+  ctx.fillStyle=DARK;font(24,1);ctx.fillText(S.empresa,M,ly+20,640);ly+=32;
+  ctx.fillStyle=MUT;font(19);
+  const comp=[S.lema,[S.nit&&"NIT "+S.nit,S.tel&&"Tel. "+S.tel].filter(Boolean).join(" · "),[S.email,S.web].filter(Boolean).join(" · "),[S.dir,S.ciudad].filter(Boolean).join(", ")].filter(Boolean);
+  for(const l of comp){ctx.fillText(l,M,ly+20,640);ly+=27}
+  ctx.textAlign="right";ctx.fillStyle=C;font(44,1);ctx.fillText(v.title,W-M,y+48,460);
+  let ry=y+92;ctx.fillStyle=DARK;font(26,1);ctx.fillText(v.num,W-M,ry,460);ry+=36;
+  ctx.fillStyle=MUT;font(21);for(const l of v.meta){ctx.fillText(l,W-M,ry,460);ry+=30}
+  y=Math.max(ly,ry)+14;ctx.fillStyle=C;ctx.fillRect(M,y,W-2*M,4);y+=28;
+  const bw=v.details.length?(W-2*M-24)/2:W-2*M;
+  font(21);const cl=v.clientLines.flatMap(l=>wrap(ctx,l,bw-40)),dl=v.details.flatMap(l=>wrap(ctx,l,bw-40));
+  const bh=62+Math.max(cl.length,dl.length,1)*30;
+  const box=(x,label,lines)=>{ctx.fillStyle="#f2f6fa";rrect(ctx,x,y,bw,bh,14);ctx.fill();ctx.textAlign="left";ctx.fillStyle=C;font(17,1);ctx.fillText(label,x+20,y+34);
+    lines.forEach((l,i)=>{ctx.fillStyle=i===0&&label==="CLIENTE"?DARK:"#33475a";font(i===0&&label==="CLIENTE"?23:21,i===0&&label==="CLIENTE");ctx.fillText(l,x+20,y+66+i*30)})};
+  box(M,"CLIENTE",cl);if(v.details.length)box(M+bw+24,"DETALLES",dl);
+  y+=bh+28;breaks.push(y);
+  const cols=v.columns;let x0=M;const xs=cols.map(c=>{const x=x0;x0+=c.w;return x});
+  ctx.fillStyle=DARK;rrect(ctx,M,y,W-2*M,50,8);ctx.fill();ctx.fillStyle="#fff";font(19,1);
+  const put2=(txt,i,yy)=>{const c=cols[i];ctx.textAlign=c.a==="r"?"right":c.a==="c"?"center":"left";ctx.fillText(txt,c.a==="r"?xs[i]+c.w-14:c.a==="c"?xs[i]+c.w/2:xs[i]+14,yy,c.w-20)};
+  cols.forEach((c,i)=>put2(c.h,i,y+33));y+=50;breaks.push(y);
+  v.rows.forEach((row,ri)=>{font(21);const lines=wrap(ctx,row[0],cols[0].w-28);const rh=lines.length*29+24;
+    if(ri%2){ctx.fillStyle="#f6f9fc";ctx.fillRect(M,y,W-2*M,rh)}
+    ctx.fillStyle=DARK;lines.forEach((l,k)=>put2(l,0,y+36+k*29));
+    for(let i=1;i<row.length;i++){font(21,i===row.length-1);put2(row[i],i,y+36)}
+    y+=rh;ctx.fillStyle="#e3e9ef";ctx.fillRect(M,y-1,W-2*M,1);breaks.push(y)});
+  y+=18;const y0=y,tx=W-M-470;
+  for(const [lab,val,strong] of v.totals){if(strong){ctx.fillStyle=C;ctx.fillRect(tx,y+4,470,3);y+=10}
+    ctx.fillStyle=strong?DARK:MUT;font(strong?28:21,strong);ctx.textAlign="left";ctx.fillText(lab,tx,y+(strong?38:30));ctx.textAlign="right";ctx.fillText(val,W-M,y+(strong?38:30));y+=strong?52:38}
+  if(v.stamp){ctx.save();ctx.translate(M+200,y0+Math.max(70,(y-y0)/2));ctx.rotate(-0.18);
+    const col=v.stamp==="PAGADO"?"#16a05c":C;ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=6;
+    font(58,1);const sw=ctx.measureText(v.stamp).width+56;rrect(ctx,-sw/2,-50,sw,92,12);ctx.stroke();ctx.textAlign="center";ctx.fillText(v.stamp,0,20);ctx.restore()}
+  y+=10;breaks.push(y);
+  for(const [t,txt] of v.sections){if(!t||!String(txt||"").trim())continue;
+    y+=18;ctx.textAlign="left";ctx.fillStyle=C;font(18,1);ctx.fillText(t.toUpperCase(),M,y+20);y+=32;
+    ctx.fillStyle="#33475a";font(21);for(const l of wrap(ctx,txt,W-2*M)){ctx.fillText(l,M,y+22);y+=30;breaks.push(y)}}
+  if(v.sign&&(imgs.firma||S.firmaNombre)){y+=40;ctx.textAlign="left";
+    if(imgs.firma){const fh=110,fw=Math.min(380,imgs.firma.width*fh/imgs.firma.height);ctx.drawImage(imgs.firma,M,y,fw,fw*imgs.firma.height/imgs.firma.width);y+=112}else y+=60;
+    ctx.fillStyle=DARK;ctx.fillRect(M,y,400,2);font(21,1);ctx.fillText(S.firmaNombre||S.empresa,M,y+30,400);
+    ctx.fillStyle=MUT;font(18);ctx.fillText(S.empresa+(S.nit?" · NIT "+S.nit:""),M,y+56,400);y+=66}
+  breaks.push(y);
+  y+=34;ctx.textAlign="center";
+  if(S.pie){ctx.fillStyle=MUT;font(19);for(const l of wrap(ctx,S.pie,W-2*M)){ctx.fillText(l,W/2,y+20);y+=27}}
+  if(v.legal){ctx.fillStyle="#8a97a3";font(16);for(const l of wrap(ctx,v.legal,W-2*M)){ctx.fillText(l,W/2,y+22);y+=24}}
+  y+=50;return {h:y,breaks};
+}
+const canvasBlob=(c,type,q)=>new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("No se pudo crear la imagen")),type,q));
+async function toPdf(canvas,breaks){
+  const PH=1754,TOP=70,pages=[];let top=0,first=true;
+  while(top<canvas.height-1){const avail=PH-(first?0:TOP)-40;let end=top+avail;
+    if(end>=canvas.height)end=canvas.height;else{const ok=breaks.filter(b=>b>top+300&&b<=end);if(ok.length)end=Math.max(...ok)}
+    const pc=document.createElement("canvas");pc.width=1240;pc.height=PH;const x=pc.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,1240,PH);
+    x.drawImage(canvas,0,top,1240,end-top,0,first?0:TOP,1240,end-top);pages.push(pc);top=end;first=false}
+  if(pages.length>1)pages.forEach((pc,i)=>{const x=pc.getContext("2d");x.fillStyle="#8a97a3";x.font="16px Helvetica, Arial, sans-serif";x.textAlign="right";x.fillText(`Página ${i+1} de ${pages.length}`,1170,PH-24)});
+  const jpgs=[];for(const pc of pages)jpgs.push(new Uint8Array(await(await canvasBlob(pc,"image/jpeg",.9)).arrayBuffer()));
+  return new Blob([buildPdf(jpgs,1240,PH)],{type:"application/pdf"});
+}
+function buildPdf(jpgs,w,h){
+  const enc=new TextEncoder(),parts=[],offs=[];let len=0;
+  const push=x=>{const b=typeof x==="string"?enc.encode(x):x;parts.push(b);len+=b.length};
+  const obj=(id,body)=>{offs[id]=len;push(`${id} 0 obj\n${body}\nendobj\n`)};
+  const PW=595.28,PHt=841.89,n=jpgs.length;
+  push("%PDF-1.4\n%âãÏÓ\n");obj(1,"<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2,`<< /Type /Pages /Kids [${jpgs.map((_,i)=>(3+i*3)+" 0 R").join(" ")}] /Count ${n} >>`);
+  jpgs.forEach((bytes,i)=>{const pid=3+i*3,cid=pid+1,iid=pid+2;
+    obj(pid,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PHt}] /Resources << /XObject << /Im${i} ${iid} 0 R >> >> /Contents ${cid} 0 R >>`);
+    const cs=`q ${PW} 0 0 ${PHt} 0 0 cm /Im${i} Do Q`;obj(cid,`<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`);
+    offs[iid]=len;push(`${iid} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`);
+    push(bytes);push("\nendstream\nendobj\n")});
+  const total=2+n*3,xref=len;let x=`xref\n0 ${total+1}\n0000000000 65535 f \n`;
+  for(let i=1;i<=total;i++)x+=String(offs[i]).padStart(10,"0")+" 00000 n \n";
+  push(x+`trailer\n<< /Size ${total+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  const out=new Uint8Array(len);let p=0;for(const b of parts){out.set(b,p);p+=b.length}return out;
+}
+
+/* Documentos y reportes */
+function vDocs(){
+  const all=DOCS();const MESk=FX.mes;
+  const enMes=all.filter(d=>(d.fecha||"").slice(0,7)===MESk);
+  const cobrado=enMes.filter(d=>d.tipo!=="cot").reduce((a,d)=>a+(d.tipo==="rc"?0:calc(d).pagado),0)+enMes.filter(d=>d.tipo==="rc"&&!/^Pago de la cuenta/.test(d.ref||"")).reduce((a,d)=>a+calc(d).total,0);
+  const porCobrar=all.filter(d=>d.tipo==="cc").reduce((a,d)=>a+calc(d).saldo,0);
+  const cotizado=enMes.filter(d=>d.tipo==="cot").reduce((a,d)=>a+calc(d).total,0);
+  const meses=[...new Set([mk(today()),...all.map(d=>(d.fecha||"").slice(0,7)).filter(Boolean)])].sort().reverse();
+  const nombreMes=m=>mkName(m);
+  const list=()=>all.filter(d=>(FX.filter==="todos"||d.tipo===FX.filter||(FX.filter==="pend"&&d.tipo==="cc"&&calc(d).saldo>0))&&(!FX.q||((d.num||"")+" "+d.cliente.nombre).toLowerCase().includes(FX.q.toLowerCase())));
+  V().innerHTML=`<select id="mes">${meses.map(m=>`<option value="${m}" ${m===MESk?"selected":""}>${esc(nombreMes(m))}</option>`).join("")}</select>
+  <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="kpi"><small>Cobrado en el mes</small><b class="up">${money(cobrado)}</b></div><div class="kpi"><small>Por cobrar (total)</small><b style="color:var(--warn)">${money(porCobrar)}</b></div><div class="kpi"><small>Cotizado en el mes</small><b>${money(cotizado)}</b></div></div>
+  <input id="fxq" placeholder="🔎 Buscar por número o cliente" value="${esc(FX.q)}">
+  <div class="chips" id="fxf">${[["todos","Todos"],["cot","Cotizaciones"],["cc","Cuentas de cobro"],["rc","Recibos"],["pend","Pendientes de pago"]].map(([k,t])=>`<button type="button" class="chip ${k===FX.filter?"on":""}" data-f="${k}">${t}</button>`).join("")}</div>
+  <div class="list" id="fxl"></div>
+  <h3>Reportes</h3>
+  <div class="grid2"><button class="btn" type="button" id="rMes">📊 Reporte del mes (PDF)</button><button class="btn" type="button" id="csv">📥 Exportar a Excel (CSV)</button></div>`;
+  const drawList=()=>{$("#fxl").innerHTML=list().map(rowDoc).join("")||`<div class="empty"><b>${all.length?"Nada con ese filtro":"No hay documentos todavía"}</b>${all.length?"Cambia el filtro o la búsqueda.":"Crea uno en ➕ Nuevo o restaura tu copia de Vortice en ⚙️ Ajustes."}</div>`;bindCommon($("#fxl"))};
+  drawList();
+  $("#mes").onchange=e=>{FX.mes=e.target.value;render()};
+  $("#fxq").oninput=e=>{FX.q=e.target.value;drawList()};
+  $("#fxf").onclick=e=>{const b=e.target.closest("[data-f]");if(b){FX.filter=b.dataset.f;$("#fxf").querySelectorAll(".chip").forEach(c=>c.classList.toggle("on",c===b));drawList()}};
+  $("#rMes").onclick=()=>reportPreview(reportMes(MESk,nombreMes(MESk)),"Reporte_"+MESk);
+  $("#csv").onclick=exportCsv;
+}
+function reportMes(mes,nombre){
+  const docs=DOCS().filter(d=>(d.fecha||"").slice(0,7)===mes&&d.tipo!=="cot").sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  let tot=0,pag=0,sal=0;
+  const rows=docs.map(d=>{const t=calc(d);const p=d.tipo==="rc"?t.total:t.pagado;tot+=d.tipo==="rc"?0:t.total;pag+=(d.tipo==="rc"&&/^Pago de la cuenta/.test(d.ref||""))?0:p;sal+=d.tipo==="rc"?0:t.saldo;return [`${fmtD(d.fecha)} · ${d.num} · ${d.cliente.nombre}`,TIPOS[d.tipo].n,money(t.total),money(d.tipo==="rc"?0:t.saldo)]});
+  return {title:"REPORTE MENSUAL",num:nombre.charAt(0).toUpperCase()+nombre.slice(1),meta:["Generado: "+fmtD(today())],
+    clientLines:[S.empresa,`${docs.length} documentos de cobro y pago`],details:[],
+    columns:[{h:"Fecha · Documento · Cliente",w:560,a:"l"},{h:"Tipo",w:200,a:"l"},{h:"Valor",w:170,a:"r"},{h:"Saldo",w:170,a:"r"}],
+    rows:rows.length?rows:[["Sin movimientos en este mes","","",""]],
+    totals:[["Total cobrado en cuentas",money(tot)],["Saldo pendiente",money(sal)],["TOTAL RECIBIDO",money(pag),1]],stamp:"",sections:[],sign:false,legal:""};
+}
+async function reportPreview(view,name,back){
+  setHead("Reporte",back||fxHome);const tk=++RENDER;
+  $("#view").innerHTML=`<div class="view"><div class="prev" id="pv"><p style="color:#333;padding:30px;text-align:center">Generando…</p></div><div class="grid2"><button class="btn g" type="button" id="shPdf" disabled>📤 PDF</button><button class="btn" type="button" id="shImg" disabled>🖼️ Imagen</button></div></div>`;
+  const r=await renderView(view);const img=await canvasBlob(r.canvas,"image/jpeg",.9),pdf=await toPdf(r.canvas,r.breaks);
+  if(tk!==RENDER)return;
+  const f={pdf:new File([pdf],name+".pdf",{type:"application/pdf"}),img:new File([img],name+".jpg",{type:"image/jpeg"})};
+  $("#pv").innerHTML=`<img src="${URL.createObjectURL(img)}" alt="Vista previa">`;
+  $("#shPdf").disabled=$("#shImg").disabled=false;$("#shPdf").onclick=()=>shareFile(f.pdf);$("#shImg").onclick=()=>shareFile(f.img);
+}
+function exportCsv(){
+  const head=["Tipo","Número","Fecha","Cliente","CC/NIT","Teléfono","Subtotal","Descuento","IVA","Total","Pagado","Saldo","Estado","Detalle"];
+  const q=s=>'"'+String(s??"").replace(/"/g,'""').replace(/\n/g," ")+'"';
+  const lines=DOCS().map(d=>{const t=calc(d);return [TIPOS[d.tipo].n,d.num,fmtD(d.fecha),d.cliente.nombre,d.cliente.doc,d.cliente.tel,Math.round(t.sub),Math.round(t.desc),Math.round(t.iva),Math.round(t.total),Math.round(t.pagado),Math.round(t.saldo),d.estado,d.items.map(i=>i.d).join(" | ")].map(q).join(";")});
+  shareFile(new File(["﻿"+head.map(q).join(";")+"\n"+lines.join("\n")],"Vortice_documentos_"+today()+".csv",{type:"text/csv"}));
+}
+
+/* Clientes */
+function vClientes(){
+  const all=DOCS();
+  const names=[...new Set([...CLI().map(c=>c.nombre),...all.map(d=>d.cliente.nombre)].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  V().innerHTML=`<input id="qc" placeholder="🔎 Buscar cliente"><div class="list" id="lc"></div>`;
+  const draw=f=>$("#lc").innerHTML=names.filter(n=>n.toLowerCase().includes(f.toLowerCase())).map(n=>{
+    const ds=all.filter(d=>d.cliente.nombre===n);const saldo=ds.filter(d=>d.tipo==="cc").reduce((a,d)=>a+calc(d).saldo,0);
+    const jobs=D.trabajos.filter(j=>(j.cliente||"").toLowerCase()===n.toLowerCase()).length;
+    return `<button class="row" type="button" data-c="${esc(n)}"><span class="em">👤</span><span class="tx"><b>${esc(n)}</b><small>${ds.length} documento(s)${jobs?` · ${jobs} trabajo(s)`:""}</small></span><span class="rt">${saldo?`<span style="color:var(--warn)">Debe ${money(saldo)}</span>`:""}</span></button>`;
+  }).join("")||'<div class="empty"><b>Sin clientes</b>Se guardan solos cuando haces un documento o agendas un trabajo.</div>';
+  draw("");$("#qc").oninput=e=>draw(e.target.value);
+  $("#lc").onclick=e=>{const a=e.target.closest("[data-c]");if(a){e.preventDefault();vCliente(a.dataset.c)}};
+}
+function vCliente(n){
+  const all=DOCS();
+  const c=Object.assign({nombre:n,doc:"",tel:"",dir:"",email:""},(all.find(d=>d.cliente.nombre===n)||{}).cliente,CLI().find(x=>x.nombre===n)||{});
+  const ds=all.filter(d=>d.cliente.nombre===n);
+  const jobs=D.trabajos.filter(j=>(j.cliente||"").toLowerCase()===n.toLowerCase()).sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+  setHead(n,()=>{SUB=null;FX_BACK=null;FX.tab="clientes";render()});
+  $("#view").innerHTML=`<div class="view"><div class="card"><b>${esc(c.nombre)}</b><p class="muted" style="margin:4px 0 0">${[c.doc&&"CC/NIT "+c.doc,c.tel,c.dir,c.email].filter(Boolean).map(esc).join("<br>")||"Sin datos de contacto"}</p></div>
+  <div class="grid2">${Object.entries(TIPOS).map(([k,t])=>`<button class="btn" type="button" data-new="${k}">${t.i} ${esc(t.n)}</button>`).join("")}${c.tel?`<a class="btn wa" href="https://wa.me/${esc(phone(c.tel))}" target="_blank" rel="noopener">💬 WhatsApp</a>`:""}</div>
+  <button class="btn" type="button" id="cJob">📅 Agendar trabajo</button>
+  <button class="btn p w" type="button" id="ec">📊 Estado de cuenta (PDF para el cliente)</button>
+  <h3>Documentos</h3><div class="list">${ds.map(rowDoc).join("")||'<p class="muted">Sin documentos.</p>'}</div>
+  ${jobs.length?`<h3>Trabajos</h3><div class="list">${jobs.slice(0,10).map(j=>`<div class="row"><span class="em">${eq(j.equipo).i}</span><span class="tx"><b>${esc(j.servicio||"Trabajo")}</b><small>${esc(fmtD(j.fecha))} · ${esc(eq(j.equipo).n)}</small></span><span class="pill ${esc(j.estado)}">${esc(estN(j.estado))}</span></div>`).join("")}</div>`:""}</div>`;
+  $("#view").querySelectorAll("[data-new]").forEach(b=>b.onclick=()=>edit(newDoc(b.dataset.new,c)));
+  $("#cJob").onclick=()=>jobForm(null,{cliente:c.nombre,tel:c.tel,dir:c.dir});
+  $("#ec").onclick=()=>reportPreview(estadoCuenta(c,ds),"Estado_de_cuenta_"+n.replace(/\s+/g,"_"),()=>vCliente(n));
+  bindCommon($("#view"));
+}
+function estadoCuenta(c,ds){
+  const docs=ds.filter(d=>d.tipo==="cc").sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  let tot=0,pag=0,sal=0;
+  const rows=docs.map(d=>{const t=calc(d);tot+=t.total;pag+=t.pagado;sal+=t.saldo;return [`${fmtD(d.fecha)} · ${d.num}`+(d.items[0]&&d.items[0].d?" · "+d.items[0].d:""),money(t.total),money(t.pagado),money(t.saldo)]});
+  return {title:"ESTADO DE CUENTA",num:"Corte: "+fmtD(today()),meta:[],
+    clientLines:[c.nombre,c.doc&&"CC/NIT: "+c.doc,c.tel&&"Tel.: "+c.tel,c.dir].filter(Boolean),details:sal?["Saldo pendiente: "+money(sal)]:["Sin saldos pendientes"],
+    columns:[{h:"Fecha · Documento · Concepto",w:560,a:"l"},{h:"Valor",w:180,a:"r"},{h:"Pagado",w:180,a:"r"},{h:"Saldo",w:180,a:"r"}],
+    rows:rows.length?rows:[["Sin cuentas de cobro registradas","","",""]],
+    totals:[["Total facturado",money(tot)],["Total pagado",money(pag)],["SALDO PENDIENTE",money(sal),1]],
+    stamp:!sal&&rows.length?"PAGADO":"",sections:[["Datos para el pago",sal?S.pago:""]],sign:true,legal:S.legal};
+}
+
+/* Ajustes de facturas */
+async function shrinkImg(src,maxW,limit){
+  const img=await loadImg(src);if(!img)return null;
+  let w=Math.min(maxW,img.width),out="";
+  for(let k=0;k<5;k++){const sc=w/img.width,c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+    const x=c.getContext("2d");x.drawImage(img,0,0,c.width,c.height);out=c.toDataURL("image/png");
+    if(out.length>limit){const j=document.createElement("canvas");j.width=c.width;j.height=c.height;const jx=j.getContext("2d");jx.fillStyle="#fff";jx.fillRect(0,0,j.width,j.height);jx.drawImage(c,0,0);out=j.toDataURL("image/jpeg",.85)}
+    if(out.length<=limit)return out;w=Math.round(w*.75)}
+  return out.length<=limit?out:null;
+}
+function vAjustes(){
+  const f=(k,l,ph,type)=>`<label class="f">${l}<input data-s="${k}" value="${esc(S[k])}" ${ph?`placeholder="${esc(ph)}"`:""} ${type?`type="${type}"`:""}></label>`;
+  const ta=(k,l,ph)=>`<label class="f">${l}<textarea data-s="${k}" placeholder="${esc(ph||"")}">${esc(S[k])}</textarea></label>`;
+  V().innerHTML=`
+  <h3>Logo / portada</h3>
+  <div class="card fg"><div class="logo-prev"><img id="lgPrev" src="${esc(S.logo||LOGO_DEF)}" alt="Logo"></div>
+  <div class="grid2"><button class="btn sm" type="button" id="lgUp">Cambiar logo</button>${S.logo?`<button class="btn sm" type="button" id="lgRst">Usar el de Vortice</button>`:""}</div>
+  <label class="f">Color principal del documento<input type="color" data-s="color" value="${esc(S.color)}" style="height:46px;padding:4px"></label></div>
+  <h3>Datos de la empresa</h3>
+  <div class="card fg">${f("empresa","Nombre / razón social")}${f("nit","NIT","900.000.000-0")}${f("tel","Teléfono")}${f("email","Correo","","email")}${f("dir","Dirección","Opcional")}${f("ciudad","Ciudad")}${f("web","Página web")}${f("lema","Lema o servicios (debajo del nombre)")}</div>
+  <h3>Pagos y textos</h3>
+  <div class="card fg">${ta("pago","Datos para que te paguen","Ej.: Nequi 314 615 3559 · Bancolombia ahorros 000-000000-00 a nombre de …")}${ta("cond","Condiciones / garantía por defecto (cotizaciones)")}${f("pie","Mensaje al pie")}${ta("legal","Nota legal al pie (cobros y recibos)")}
+  <div class="fg2">${f("ivaPct","IVA por defecto (%)")}${f("validez","Validez cotización (días)")}</div></div>
+  <h3>Firma</h3>
+  <div class="card fg"><div class="muted">Firma con el dedo dentro del recuadro.</div><canvas class="sig" id="sig"></canvas>
+  <div class="grid2"><button class="btn sm" type="button" id="sigClr">Borrar</button><button class="btn sm p" type="button" id="sigSave">Guardar firma</button></div>
+  ${S.firma?`<div class="muted">✔ Tienes una firma guardada. <button type="button" id="sigDel" style="background:none;border:0;color:var(--bad);font-weight:800;padding:0">Quitar</button></div>`:""}
+  ${f("firmaNombre","Nombre debajo de la firma","Ej.: Juan Pérez – Gerente")}</div>
+  <h3>Numeración</h3>
+  <div class="card fg">${Object.entries(TIPOS).map(([k,t])=>`<div class="fg2"><label class="f">${esc(t.n)}: prefijo<input data-p="${k}" value="${esc(S.pref[k])}"></label><label class="f">Siguiente número<input inputmode="numeric" data-nx="${k}" value="${esc(S.next[k])}"></label></div>`).join("")}</div>
+  <h3>Catálogo de servicios y productos</h3>
+  <div class="card fg" id="cat">${CATL.map((c,i)=>`<div style="display:grid;grid-template-columns:2fr 1fr 34px;gap:6px;align-items:center"><input data-cd="${i}" value="${esc(c.d)}"><input data-cp="${i}" inputmode="numeric" value="${c.p?esc(c.p):""}" placeholder="Precio"><button class="x" type="button" data-cx="${i}" aria-label="Quitar">✕</button></div>`).join("")}
+  <button class="btn sm" type="button" id="catAdd" style="justify-self:start">＋ Agregar al catálogo</button></div>
+  <h3>Copia de seguridad</h3>
+  <div class="card fg"><div class="muted">${D.mode==="cloud"?"☁️ Tus documentos se guardan en tu cuenta y los ves en cualquier celular. Igual puedes descargar una copia cuando quieras.":"📱 Ahora se guardan solo en este celular. Abre el enlace en claude.ai con tu cuenta para guardarlos en la nube."}</div>
+  <div class="muted"><b style="color:var(--text)">¿Vienes de Vortice Docs?</b> En Vortice toca ⚙️ Ajustes → “💾 Hacer copia de seguridad”, y aquí “📂 Restaurar una copia”. Se pasan documentos, clientes, catálogo, logo, firma y numeración.</div>
+  <div class="grid2"><button class="btn" type="button" id="bkOut">💾 Hacer copia</button><button class="btn g" type="button" id="bkIn">📂 Restaurar una copia</button></div>
+  <div class="muted" id="bkMsg">${D.fdocs.length} documentos · ${D.fcli.length} clientes</div></div>`;
+  const root=V();
+  root.querySelectorAll("[data-s]").forEach(el=>el.addEventListener(el.type==="color"?"change":"input",()=>{const k=el.dataset.s;S[k]=(k==="ivaPct"||k==="validez")?num(el.value):el.value;saveS()}));
+  root.querySelectorAll("[data-p]").forEach(el=>el.oninput=()=>{S.pref[el.dataset.p]=el.value.trim()||DEF.pref[el.dataset.p];saveS()});
+  root.querySelectorAll("[data-nx]").forEach(el=>el.oninput=()=>{S.next[el.dataset.nx]=Math.max(1,parseInt(el.value)||1);saveS()});
+  root.querySelectorAll("[data-cd]").forEach(el=>el.oninput=()=>{CATL[+el.dataset.cd].d=el.value;saveC()});
+  root.querySelectorAll("[data-cp]").forEach(el=>el.oninput=()=>{CATL[+el.dataset.cp].p=num(el.value);saveC()});
+  root.querySelectorAll("[data-cx]").forEach(b=>b.onclick=()=>{CATL.splice(+b.dataset.cx,1);saveC();vAjustes()});
+  $("#catAdd").onclick=()=>{CATL.push({d:"Nuevo servicio",p:0});saveC();vAjustes();const l=V().querySelectorAll("[data-cd]");l[l.length-1].select()};
+  $("#lgUp").onclick=()=>pickFile("image/*",async file=>{const d=await shrinkImg(URL.createObjectURL(file),700,230000);if(!d)return toast("No se pudo leer la imagen");S.logo=d;put("fconf",{id:"logo",data:d});toast("Logo actualizado");vAjustes()});
+  if($("#lgRst"))$("#lgRst").onclick=()=>{S.logo=null;put("fconf",{id:"logo",data:""});vAjustes()};
+  if($("#sigDel"))$("#sigDel").onclick=()=>{S.firma=null;put("fconf",{id:"firma",data:""});vAjustes()};
+  sigPad();
+  $("#bkOut").onclick=()=>shareFile(new File([JSON.stringify({app:"vortice-docs",v:1,fecha:new Date().toISOString(),S,DOCS:DOCS(),CAT:CATL,CLI:CLI().map(({id,upd,...c})=>c)})],`Vortice_copia_${today()}.json`,{type:"application/json"}));
+  $("#bkIn").onclick=()=>pickFile(".json,application/json",async file=>{
+    let b;try{b=JSON.parse(await file.text());if(b.app!=="vortice-docs"||!Array.isArray(b.DOCS))throw 0}catch(e){toast("Ese archivo no es una copia de Vortice");return}
+    const btn=$("#bkIn");if(!btn)return;
+    btn.textContent=`¿Reemplazar con la copia del ${fmtD((b.fecha||"").slice(0,10))} (${b.DOCS.length} docs)? Toca para confirmar`;btn.classList.add("d");
+    btn.onclick=()=>restoreBackup(b);
+  });
+}
+async function restoreBackup(b){
+  const msg=$("#bkMsg"),btn=$("#bkIn");if(btn){btn.disabled=true;btn.textContent="Restaurando…"}
+  const docs=(b.DOCS||[]).filter(d=>d&&d.tipo&&d.cliente).map(d=>Object.assign(clone(d),{id:/^[A-Za-z0-9_\-]+$/.test(d.id||"")?d.id:uid()}));
+  const cli=(b.CLI||[]).filter(c=>c&&c.nombre);
+  const s=Object.assign(clone(DEF),b.S||{});s.pref=Object.assign(clone(DEF.pref),s.pref);s.next=Object.assign(clone(DEF.next),s.next);
+  const logo=s.logo?await shrinkImg(s.logo,700,230000):null,firma=s.firma?await shrinkImg(s.firma,700,200000):null;
+  const ops=[];
+  const keep=new Set(docs.map(d=>d.id));
+  D.fdocs.filter(x=>!keep.has(x.id)).forEach(x=>ops.push(()=>del("fdocs",x.id)));
+  D.fcli.slice().forEach(x=>ops.push(()=>del("fcli",x.id)));
+  (D.vortice||[]).slice().forEach(x=>ops.push(()=>del("vortice",x.id)));
+  docs.forEach(d=>ops.push(()=>put("fdocs",d)));
+  cli.forEach(c=>ops.push(()=>put("fcli",{id:uid(),nombre:c.nombre,doc:c.doc||"",tel:c.tel||"",dir:c.dir||"",email:c.email||""})));
+  clearTimeout(sT);sT=null;clearTimeout(cT);cT=null;
+  const {logo:_l,firma:_f,...rest}=s;
+  ops.push(()=>put("fconf",{id:"settings",s:rest}),()=>put("fconf",{id:"logo",data:logo||""}),()=>put("fconf",{id:"firma",data:firma||""}),()=>put("fconf",{id:"catalog",items:Array.isArray(b.CAT)?b.CAT:clone(DEFCAT)}));
+  let done=0;const N=ops.length;
+  const worker=async()=>{while(ops.length){const op=ops.shift();await op();done++;if(msg&&done%5===0)msg.textContent=`Restaurando… ${done} de ${N}`}};
+  await Promise.all([worker(),worker(),worker()]);
+  S=Object.assign(s,{logo,firma});CATL=Array.isArray(b.CAT)?clone(b.CAT):clone(DEFCAT);
+  toast(`Copia restaurada: ${docs.length} documentos ✔`);FX.tab="docs";render();
+}
+function sigPad(){
+  const c=$("#sig");if(!c)return;const r=c.getBoundingClientRect(),k=2;c.width=r.width*k;c.height=r.height*k;
+  const x=c.getContext("2d");x.lineWidth=5;x.lineCap=x.lineJoin="round";x.strokeStyle="#0f2233";
+  let on=false,used=false;
+  const pt=e=>{const b=c.getBoundingClientRect();return [(e.clientX-b.left)*k,(e.clientY-b.top)*k]};
+  c.onpointerdown=e=>{on=used=true;c.setPointerCapture(e.pointerId);x.beginPath();x.moveTo(...pt(e))};
+  c.onpointermove=e=>{if(on){x.lineTo(...pt(e));x.stroke()}};
+  c.onpointerup=c.onpointercancel=()=>on=false;
+  $("#sigClr").onclick=()=>{x.clearRect(0,0,c.width,c.height);used=false};
+  $("#sigSave").onclick=()=>{
+    if(!used)return toast("Primero firma en el recuadro");
+    const d=x.getImageData(0,0,c.width,c.height).data;let x0=c.width,y0=c.height,x1=0,y1=0;
+    for(let yy=0;yy<c.height;yy+=2)for(let xx=0;xx<c.width;xx+=2)if(d[(yy*c.width+xx)*4+3]>20){if(xx<x0)x0=xx;if(xx>x1)x1=xx;if(yy<y0)y0=yy;if(yy>y1)y1=yy}
+    const o=document.createElement("canvas");o.width=x1-x0+20;o.height=y1-y0+20;
+    o.getContext("2d").drawImage(c,x0-10,y0-10,o.width,o.height,0,0,o.width,o.height);
+    S.firma=o.toDataURL("image/png");put("fconf",{id:"firma",data:S.firma});toast("Firma guardada ✔");vAjustes();
+  };
+}
+
+/* ================= AJUSTES generales ================= */
 function vSettings(){
   const c=D.cfg;
   sheet("Ajustes",`<div class="fg">
-   <label class="f">Nombre de la empresa (sale en los mensajes)<input id="sE" value="${esc(c.empresa||"")}" placeholder="Vortice E&C"></label>
-   <div class="fg2"><label class="f">Tu nombre<input id="sN" value="${esc(c.tecnico||"")}" placeholder="Técnico principal"></label><label class="f">Teléfono de contacto<input id="sT" inputmode="tel" value="${esc(c.tel||"")}"></label></div>
-   <div class="fg2"><label class="f">Tarifa por hora (cotizar)<input id="sR" inputmode="numeric" value="${esc(c.tarifa||"")}" placeholder="35000"></label><label class="f">Margen de utilidad %<input id="sM" inputmode="decimal" value="${esc(c.margen||"")}" placeholder="35"></label></div>
+   <div class="fg2"><label class="f">Tu nombre (técnico)<input id="sN" value="${esc(c.tecnico||"")}" placeholder="Técnico principal"></label><label class="f">Tarifa por hora (cotizar)<input id="sR" inputmode="numeric" value="${esc(c.tarifa||"")}" placeholder="35000"></label></div>
+   <label class="f">Margen de utilidad % (cotizar)<input id="sM" inputmode="decimal" value="${esc(c.margen||"")}" placeholder="35"></label>
    <button class="btn p w" type="button" id="sS">Guardar</button>
+   <div class="card" style="background:var(--s2)"><b>Empresa, logo, firma y datos de pago</b><div class="muted" style="margin:4px 0 10px">Se usan en los documentos y en los mensajes de WhatsApp. Están en Facturas → Ajustes.</div><button class="btn sm" type="button" id="sGo">Ir a Facturas → Ajustes</button></div>
    <div class="muted">${D.mode==="cloud"?"☁️ Tus datos se guardan en tu cuenta de Claude: los ves en cualquier celular donde abras este enlace con tu cuenta.":"📱 Ahora los datos se guardan solo en este celular. Abre el enlace en claude.ai con tu cuenta para guardarlos en la nube."}</div></div>`,pan=>{
-    pan.querySelector("#sS").onclick=()=>{const g=id=>pan.querySelector("#"+id).value.trim();Object.assign(D.cfg,{empresa:g("sE"),tecnico:g("sN"),tel:g("sT"),tarifa:num(g("sR"))||"",margen:num(g("sM"))||""});saveCfg();toast("Ajustes guardados ✔");closeSheet()};
+    pan.querySelector("#sS").onclick=()=>{const g=id=>pan.querySelector("#"+id).value.trim();Object.assign(D.cfg,{tecnico:g("sN"),tarifa:num(g("sR"))||"",margen:num(g("sM"))||""});saveCfg();toast("Ajustes guardados ✔");closeSheet()};
+    pan.querySelector("#sGo").onclick=()=>{$("#sheetRoot").innerHTML="";sheetOpen=false;FX.tab="ajustes";go("facturas")};
   });
 }
 

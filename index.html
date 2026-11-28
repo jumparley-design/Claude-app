@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Manrope:wght@400;500;600;700;800&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>
 /* Layout: phone-first app shell like Vortice Docs — fixed top bar, one view at a time, bottom tab bar; sheets slide up for forms. Single dark theme by choice, to match Vortice. */
 :root{
@@ -254,6 +255,9 @@ async function copyText(t){try{await navigator.clipboard.writeText(t);toast("Cop
 /* ================= catálogos ================= */
 const EQ=[
  {id:"frio_com",i:"🧊",n:"Refrigeración comercial",d:"Neveras, vitrinas, congeladores"},
+ {id:"nevera",i:"🧊",n:"Nevera / congelador",d:"Neveras y congeladores verticales u horizontales"},
+ {id:"vitrina",i:"🧁",n:"Vitrina exhibidora refrigerada",d:"Vitrinas refrigeradas de exhibición"},
+ {id:"nevtorta",i:"🎂",n:"Nevera de tortas",d:"Neveras y vitrinas de pastelería"},
  {id:"frio_ind",i:"🏭",n:"Cuarto frío / industrial",d:"Cámaras, chillers, condensadoras"},
  {id:"aire",i:"❄️",n:"Aire acondicionado",d:"Minisplit, inverter, central, VRF"},
  {id:"h_rot",i:"🔥",n:"Horno rotativo",d:"Quemador, ignición, carro giratorio"},
@@ -279,7 +283,7 @@ const TC=[
  {id:"falla",i:"🩺",n:"Diagnóstico de falla"},{id:"codigo",i:"🔢",n:"Código de error"},{id:"instal",i:"🧰",n:"Instalación"},
  {id:"mant",i:"🧽",n:"Mantenimiento"},{id:"calc",i:"📐",n:"Cálculo / selección"},{id:"rep",i:"🔄",n:"Repuestos / equivalencias"},{id:"norma",i:"📋",n:"Procedimiento / norma"}
 ];
-const SERV=["Mantenimiento preventivo","Atención de falla / emergencia","Reparación","Mantenimiento locativo","Cerramientos","Diagnóstico / visita técnica","Instalación","Garantía","Montaje / soldadura","Trabajo eléctrico"];
+const SERV=["Mantenimiento preventivo","Revisión y seguimiento general","Atención de falla / emergencia","Reparación","Mantenimiento locativo","Cerramientos","Diagnóstico / visita técnica","Instalación","Garantía","Montaje / soldadura","Trabajo eléctrico"];
 const EST=[["programado","Programado"],["confirmado","Confirmado"],["en_curso","En curso"],["terminado","Terminado"],["cancelado","Cancelado"]];
 const CAT={
  ingreso:["Servicio técnico","Instalación","Mantenimiento","Venta de repuestos","Contrato","Otro ingreso"],
@@ -495,7 +499,9 @@ const ACT={
   kExtra:b=>{const c=D.contratos.find(x=>x.id===b.dataset.id);if(c)kExtraJob(c,"extra")},
   kDoc:b=>{const d=D.fdocs.find(x=>x.id===b.dataset.id);if(d){go("facturas");preview(d)}},
   repJ:b=>repSheet(D.trabajos.find(j=>j.id===b.dataset.id)),
-  kInt:()=>contratoForm(null,{equipos:INTEGRAL_EQ.slice(),cant:{},incluye:INTEGRAL_INC,estado:"propuesta",visitas:"mensual",mo:"incluida",resp:4,rep:"aparte",dur:12,anticipado:true}),
+  kInt:()=>contratoForm(null,{equipos:INTEGRAL_EQ.slice(),cant:{},incluye:INTEGRAL_INC,estado:"propuesta",visitas:"quincenal",dow:2,mo:"incluida",resp:4,rep:"aparte",dur:12,anticipado:true}),
+  kFol:()=>folletoSheet(),
+  kPlan:b=>{const c=D.contratos.find(x=>x.id===b.dataset.id);if(c)planAnualSheet(c)},
   kProp:b=>{const c=D.contratos.find(x=>x.id===b.dataset.id);if(c)propuestaSheet(c)},
   kRent:b=>{const c=D.contratos.find(x=>x.id===b.dataset.id);if(c)rentSheet(c.cliente,c)},
   report:b=>reportSheet(D.trabajos.find(j=>j.id===b.dataset.id)),
@@ -1638,7 +1644,7 @@ function autoSchedule(){
   D.contratos.forEach(c=>{
     const win=kMonths(c)?addDays(t,40):hasta;
     kVisits(c,t,win).forEach(v=>{if(kJob(c,v.key))return;const e=(c.equipos||[])[0]||"otro";
-      put("trabajos",{id:kJobId(c,v.key),cliente:c.cliente,tel:c.tel||"",dir:c.dir||"",fecha:v.fecha,hora:c.hora||"08:00",dur:"2",equipo:e,servicio:"Mantenimiento preventivo",tecnico:c.tecnico||D.cfg.tecnico||"",valor:"",notas:`🔁 Contrato · visita ${visN(kVis(c))[1].toLowerCase()}${c.detalle?" · "+c.detalle:""}`,estado:"programado",notif:[],contrato:c.id,periodo:v.key})});
+      put("trabajos",{id:kJobId(c,v.key),cliente:c.cliente,tel:c.tel||"",dir:c.dir||"",fecha:v.fecha,hora:c.hora||"08:00",dur:"2",equipo:e,servicio:(kVis(c)==="quincenal"&&+v.fecha.slice(8)>14)||(kVis(c)==="semanal"&&+v.fecha.slice(8)>7)?"Revisión y seguimiento general":"Mantenimiento preventivo",tecnico:c.tecnico||D.cfg.tecnico||"",valor:"",notas:`🔁 Contrato · visita ${visN(kVis(c))[1].toLowerCase()}${c.detalle?" · "+c.detalle:""}`,estado:"programado",notif:[],contrato:c.id,periodo:v.key})});
   });
 }
 // Cobros: periodos que tocan cobrar
@@ -1690,7 +1696,7 @@ function vContratos(B){
   const mesJobs=D.trabajos.filter(j=>j.contrato&&j.periodo&&mk(j.fecha)===p);
   const fallas=D.trabajos.filter(j=>j.contrato&&!j.periodo&&mk(j.fecha)===p).length;
   const pend=kCobrosPend();
-  B.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2>Contratos</h2><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn sm" type="button" data-act="kInt">🥖 Plan integral</button><button class="btn p sm" type="button" data-act="kNew">＋ Contrato</button></div></div>
+  B.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2>Contratos</h2><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn sm" type="button" data-act="kFol">📣 Folleto</button><button class="btn sm" type="button" data-act="kInt">🥖 Plan integral</button><button class="btn p sm" type="button" data-act="kNew">＋ Contrato</button></div></div>
    <div class="kpis"><div class="kpi"><small>Ingreso fijo / mes</small><b class="up">${money(fijo)}</b></div><div class="kpi"><small>Contratos activos</small><b>${act.length}</b></div><div class="kpi"><small>Visitas ${esc(mkName(p,true))}</small><b>${mesJobs.filter(j=>j.estado==="terminado").length} de ${mesJobs.length}</b></div><div class="kpi"><small>Fallas y extras ${esc(mkName(p,true))}</small><b>${fallas}</b></div></div>
    ${pend.length?`<button class="btn g w" type="button" id="kGen">🧾 ${pend.length} cuenta(s) de cobro por crear</button>`:""}
    ${D.contratos.length?`<div class="list">${D.contratos.slice().sort((a,b)=>(a.estado==="activo"?0:1)-(b.estado==="activo"?0:1)||(a.cliente||"").localeCompare(b.cliente||"")).map(c=>{
@@ -1703,7 +1709,7 @@ function vContratos(B){
       ${n?`<small>➡️ Próxima: ${esc(longD(n.fecha))} · ${esc(estN(n.estado))}</small>`:""}
       ${ld?`<small>🧾 Último cobro: ${esc(ld.num)} · ${esc(ld.estado)}</small>`:""}
       ${extras.length?`<small>🔧 ${extras.length} falla(s) / trabajo(s) adicional(es) · último: ${esc(extras[0].servicio||"")} ${esc(fmtD(extras[0].fecha))}</small>`:""}
-      <div class="acts"><button class="btn sm d" type="button" data-act="kFalla" data-id="${esc(c.id)}" style="color:var(--bad)">🚨 Falla</button><button class="btn sm" type="button" data-act="kExtra" data-id="${esc(c.id)}">＋ Trabajo extra</button>${ld?`<button class="btn sm" type="button" data-act="kDoc" data-id="${esc(ld.id)}">🧾 Cobro</button>`:""}<button class="btn sm" type="button" data-act="kProp" data-id="${esc(c.id)}">📄 Propuesta</button><button class="btn sm" type="button" data-act="kRent" data-id="${esc(c.id)}">🔩 Rentab.</button><button class="btn sm" type="button" data-act="kEdit" data-id="${esc(c.id)}">✏️</button></div></div></div>`}).join("")}</div>`
+      <div class="acts"><button class="btn sm d" type="button" data-act="kFalla" data-id="${esc(c.id)}" style="color:var(--bad)">🚨 Falla</button><button class="btn sm" type="button" data-act="kExtra" data-id="${esc(c.id)}">＋ Trabajo extra</button>${ld?`<button class="btn sm" type="button" data-act="kDoc" data-id="${esc(ld.id)}">🧾 Cobro</button>`:""}<button class="btn sm" type="button" data-act="kProp" data-id="${esc(c.id)}">📄 Propuesta</button><button class="btn sm" type="button" data-act="kPlan" data-id="${esc(c.id)}">📅 Plan anual</button><button class="btn sm" type="button" data-act="kRent" data-id="${esc(c.id)}">🔩 Rentab.</button><button class="btn sm" type="button" data-act="kEdit" data-id="${esc(c.id)}">✏️</button></div></div></div>`}).join("")}</div>`
    :`<div class="empty"><b>Aún no tienes contratos</b>Un contrato de mantenimiento te da ingreso fijo. Las visitas se agendan solas, las fallas quedan registradas y la cuenta de cobro sale con un toque.</div>`}`;
   if($("#kGen"))$("#kGen").onclick=cobrosSheet;
 }
@@ -1748,7 +1754,7 @@ function contratoForm(c,pre,onSaved){
     g("kE").onclick=e=>{const b=e.target.closest("[data-e]");if(!b)return;read();const id=b.dataset.e;c.equipos=(c.equipos||[]).includes(id)?c.equipos.filter(x=>x!==id):(c.equipos||[]).concat([id]);b.classList.toggle("on");drawQ();pa()};
     g("kSug").onclick=()=>{read();const x=kSugerir(c);const P=g("kSugP");P.hidden=false;
       const drawS=()=>{const v=kSugVal(x);P.innerHTML=`<b>🧮 Valor sugerido</b>
-       <div class="fg2"><label class="f">Horas por visita<input data-s="hv" inputmode="decimal" value="${x.hv}"></label><label class="f">Visitas al mes<input data-s="vpm" inputmode="decimal" value="${x.vpm}"></label></div>
+       <div class="fg2"><label class="f">Horas visita de mantenimiento<input data-s="hv" inputmode="decimal" value="${x.hv}"></label><label class="f">Horas visita de seguimiento<input data-s="hs" inputmode="decimal" value="${x.hs}"></label></div><div class="fg2"><label class="f">Visitas al mes<input data-s="vpm" inputmode="decimal" value="${x.vpm}"></label><div></div></div>
        <div class="fg2"><label class="f">Horas de fallas / mes<input data-s="hf" inputmode="decimal" value="${x.hf}"></label><label class="f">Tu tarifa por hora<input data-s="tarifa" inputmode="numeric" value="${x.tarifa}"></label></div>
        <div class="fg2"><label class="f">Transporte por visita<input data-s="tr" inputmode="numeric" value="${x.tr}"></label><label class="f">Tope repuestos incluido<input data-s="tope" inputmode="numeric" value="${x.tope}"></label></div>
        <div class="tot big"><span>Sugerido al mes</span><span style="color:var(--brand2)" id="kSv2">${money(v)}</span></div>
@@ -1785,7 +1791,7 @@ const CHK={
   sold:["Inspección de soldaduras","Corrosión y pintura","Anclajes y tornillería","Cerramientos (mallas, rejas, láminas)"],
   elec:["Apriete de borneras","Protecciones / breakers","Contactores y relés","Puesta a tierra","Consumo (amperaje)"],
   otro:["Inspección general","Limpieza","Prueba de funcionamiento"]};
-const grp=id=>({frio_com:"frio",frio_ind:"frio",aire:"aire",h_rot:"horno",h_atm:"horno",totem:"horno",pandeb:"horno",gavet:"gavet",fritadora:"frit",mojadora:"maq",cilindro:"maq",batidora:"maq",banda:"maq",selladora:"sell",malacate:"malac",compresor:"comp",extraccion:"extr",locativo:"loc",sold:"sold",elec:"elec"})[id]||"otro";
+const grp=id=>({frio_com:"frio",nevera:"frio",vitrina:"frio",nevtorta:"frio",frio_ind:"frio",aire:"aire",h_rot:"horno",h_atm:"horno",totem:"horno",pandeb:"horno",gavet:"gavet",fritadora:"frit",mojadora:"maq",cilindro:"maq",batidora:"maq",banda:"maq",selladora:"sell",malacate:"malac",compresor:"comp",extraccion:"extr",locativo:"loc",sold:"sold",elec:"elec"})[id]||"otro";
 const GRPN={frio:"🧊 Refrigeración",aire:"❄️ Aire acondicionado",horno:"🔥 Hornos",gavet:"🗄️ Gaveteros / fermentación",frit:"🍳 Fritadoras",maq:"⚙️ Maquinaria de producción",sell:"📦 Selladoras / empaque",malac:"🏗️ Malacate / elevación",comp:"💨 Aire comprimido",extr:"🌬️ Extracción",loc:"🏢 Locativo",sold:"⚒️ Estructuras y cerramientos",elec:"⚡ Eléctrico",otro:"🛠️ General"};
 function reportSheet(j){
   if(!j)return;
@@ -1940,8 +1946,8 @@ function rentSheet(nombre,c){
 }
 
 /* ================= PROPUESTA DE CONTRATO (PDF) ================= */
-const INTEGRAL_EQ=["frio_com","frio_ind","cilindro","mojadora","h_rot","h_atm","fritadora","sold"];
-const INTEGRAL_INC="Reparaciones de soldadura en equipos, mesas, carros, bandejeros y estructuras\nLimpieza, lubricación y ajuste de partes móviles (correas, cadenas, rodamientos)\nRevisión de presiones, temperaturas, amperajes y fugas de gas\nReporte con fotos y recomendaciones después de cada visita\nAsesoría en compra de repuestos y equipos nuevos";
+const INTEGRAL_EQ=["nevera","vitrina","nevtorta","cilindro","mojadora","batidora","h_rot","totem","pandeb","fritadora","sold"];
+const INTEGRAL_INC="Revisión y seguimiento general de todos los equipos en la segunda visita del mes\nPlan de mantenimiento anual firmado y especificado por equipo\nReparaciones de soldadura en equipos, mesas, carros, bandejeros y estructuras\nLimpieza, lubricación y ajuste de partes móviles (correas, cadenas, rodamientos)\nRevisión de presiones, temperaturas, amperajes y fugas de gas\nReporte con fotos y recomendaciones después de cada visita\nAsesoría en compra de repuestos y equipos nuevos";
 const VPM={semanal:4.33,quincenal:2.17,mensual:1,bimestral:.5,trimestral:.34,llamado:0};
 const HXU={frio:.5,aire:.5,horno:1,gavet:.5,frit:.5,maq:.6,sell:.5,malac:.75,comp:.4,extr:.4,loc:1,sold:0,elec:.5,otro:.5};
 function kCant(c,id){return Math.max(1,parseInt((c.cant||{})[id])||1)}
@@ -1949,9 +1955,9 @@ function kEqLine(c){return (c.equipos||[]).map(id=>`${kCant(c,id)} ${eq(id).n.to
 function kSugerir(c){
   const hv=Math.max(2,Math.round((c.equipos||[]).reduce((a,id)=>a+kCant(c,id)*(HXU[grp(id)]??.5),0)*2)/2);
   const hf=c.mo==="incluida"?6:c.mo==="descuento"?2:0;
-  return {hv,hf,tarifa:num(D.cfg.tarifa)||35000,tr:15000,vpm:VPM[kVis(c)]??1,tope:c.rep==="tope"?num(c.tope):0};
+  return {hv,hs:Math.max(1.5,Math.round(hv))/2,hf,tarifa:num(D.cfg.tarifa)||35000,tr:15000,vpm:VPM[kVis(c)]??1,tope:c.rep==="tope"?num(c.tope):0};
 }
-function kSugVal(x){return Math.round(((x.hv*x.vpm+x.hf)*x.tarifa+x.tr*x.vpm+x.tope)/10000)*10000}
+function kSugVal(x){const h=x.vpm>=1?x.hv+(x.hs||x.hv)*(x.vpm-1):x.hv*x.vpm;return Math.round(((h+x.hf)*x.tarifa+x.tr*x.vpm+x.tope)/10000)*10000}
 function propuestaSheet(c){
   sheet("Propuesta · "+c.cliente,`<div class="muted">Generando la propuesta en PDF con tu logo…</div><div id="ppOut" class="fg"></div>`,async pan=>{
     const out=pan.querySelector("#ppOut");
@@ -2022,6 +2028,209 @@ function drawProp(ctx,c,imgs){
   ctx.fillStyle=MUT;font(18);ctx.fillText(S.empresa+(S.nit?" · NIT "+S.nit:""),M,y+56,sw);ctx.fillText("Nombre, CC/NIT y fecha",M+sw+80,y+56,sw);y+=80;breaks.push(y);
   y+=24;ctx.textAlign="center";if(S.pie){ctx.fillStyle=MUT;font(19);for(const l of wrap(ctx,S.pie,W-2*M)){ctx.fillText(l,W/2,y+20);y+=27}}
   y+=40;return {h:y,breaks};
+}
+
+/* ================= FOLLETO ABIERTO PARA PANADERÍAS ================= */
+const FC={bg:"#FFF8EE",red:"#D7352B",org:"#F28C28",yel:"#FFC531",ink:"#2B1D14",mut:"#6B5443",wheat:"#F6E3C1",cream:"#FFFDF8"};
+const FF='Helvetica Neue, Helvetica, Arial, sans-serif';
+const DEFFOL={p:["","",""],diag:true,zona:"Medellín y el Valle de Aburrá"};
+function FOL(){return Object.assign({},DEFFOL,D.cfg.folleto||{})}
+// Íconos en caja 100×100, trazo blanco
+function icon(id){const s='stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"',w='fill="#fff"';
+  switch(id){
+  case "nevera":return `<rect x="28" y="10" width="44" height="80" rx="7" ${s}/><line x1="28" y1="40" x2="72" y2="40" ${s}/><line x1="38" y1="20" x2="38" y2="30" ${s}/><line x1="38" y1="50" x2="38" y2="66" ${s}/>`;
+  case "vitrina":return `<rect x="10" y="60" width="80" height="26" rx="4" ${s}/><path d="M14 60 Q14 24 50 24 Q86 24 86 60" ${s}/><rect x="24" y="44" width="18" height="14" rx="2" ${w}/><rect x="50" y="38" width="24" height="20" rx="3" ${w}/>`;
+  case "torta":return `<line x1="14" y1="84" x2="86" y2="84" ${s}/><rect x="24" y="54" width="52" height="26" rx="4" ${w}/><rect x="32" y="36" width="36" height="20" rx="4" ${w}/><circle cx="50" cy="26" r="6" ${w}/>`;
+  case "cilindro":return `<circle cx="36" cy="40" r="15" ${s}/><circle cx="64" cy="40" r="15" ${s}/><line x1="8" y1="66" x2="92" y2="66" ${s}/><line x1="20" y1="66" x2="20" y2="90" ${s}/><line x1="80" y1="66" x2="80" y2="90" ${s}/>`;
+  case "mojadora":return `<path d="M18 50 Q50 96 82 50 Z" ${s}/><line x1="76" y1="14" x2="76" y2="56" ${s}/><line x1="50" y1="16" x2="80" y2="16" ${s}/><path d="M50 16 L50 34 Q62 40 50 48 Q40 54 50 62" ${s}/>`;
+  case "batidora":return `<rect x="16" y="82" width="68" height="8" rx="3" ${w}/><line x1="70" y1="30" x2="70" y2="84" ${s}/><rect x="22" y="14" width="56" height="20" rx="9" ${s}/><path d="M24 54 Q44 80 64 54" ${s}/><line x1="44" y1="34" x2="44" y2="62" ${s}/>`;
+  case "rotativo":return `<rect x="16" y="8" width="68" height="84" rx="6" ${s}/><rect x="26" y="18" width="36" height="54" rx="3" ${s}/><line x1="30" y1="32" x2="58" y2="32" ${s}/><line x1="30" y1="46" x2="58" y2="46" ${s}/><line x1="30" y1="60" x2="58" y2="60" ${s}/><circle cx="74" cy="24" r="3" ${w}/><circle cx="74" cy="36" r="3" ${w}/>`;
+  case "totem":return `<rect x="22" y="8" width="56" height="25" rx="4" ${s}/><rect x="22" y="38" width="56" height="25" rx="4" ${s}/><rect x="22" y="68" width="56" height="25" rx="4" ${s}/><line x1="32" y1="20" x2="62" y2="20" ${s}/><line x1="32" y1="50" x2="62" y2="50" ${s}/><line x1="32" y1="80" x2="62" y2="80" ${s}/>`;
+  case "pandebono":return `<rect x="10" y="28" width="80" height="48" rx="7" ${s}/><circle cx="30" cy="58" r="9" ${w}/><circle cx="50" cy="58" r="9" ${w}/><circle cx="70" cy="58" r="9" ${w}/><line x1="22" y1="76" x2="22" y2="92" ${s}/><line x1="78" y1="76" x2="78" y2="92" ${s}/><line x1="24" y1="40" x2="76" y2="40" ${s}/>`;
+  case "soldadura":return `<line x1="18" y1="84" x2="54" y2="48" stroke="#fff" stroke-width="11" stroke-linecap="round"/><line x1="62" y1="40" x2="62" y2="18" ${s}/><line x1="70" y1="44" x2="88" y2="30" ${s}/><line x1="72" y1="54" x2="92" y2="56" ${s}/><line x1="52" y1="34" x2="40" y2="18" ${s}/><circle cx="60" cy="44" r="6" ${w}/>`;
+  }return "";}
+const FEQ=[["nevera","Neveras",""],["vitrina","Vitrinas","refrigeradas"],["torta","Nevera","de tortas"],["cilindro","Cilindros",""],["mojadora","Mojadoras",""],["batidora","Batidoras",""],["rotativo","Hornos","rotativos"],["totem","Horno","tótem"],["pandebono","Horno","pandebonero"],["soldadura","Soldadura","de carros y mesas"]];
+const t=(x,y,txt,sz,col,wt,anc,extra)=>`<text x="${x}" y="${y}" font-family="${FF}" font-size="${sz}" font-weight="${wt||400}" fill="${col}" text-anchor="${anc||"start"}" ${extra||""}>${esc(txt)}</text>`;
+const check=(x,y,col)=>`<circle cx="${x}" cy="${y}" r="15" fill="${col}"/><path d="M${x-7} ${y} L${x-2} ${y+6} L${x+8} ${y-6}" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+function heroArt(){
+  // Horno rotativo grande + mojadora + pandebonos, estilo plano
+  return `<g transform="translate(760 250)">
+   <circle cx="200" cy="300" r="330" fill="${FC.yel}"/><circle cx="420" cy="40" r="110" fill="${FC.org}"/>
+   <rect x="110" y="60" width="270" height="470" rx="22" fill="#fff" stroke="${FC.ink}" stroke-width="8"/>
+   <rect x="140" y="100" width="160" height="300" rx="12" fill="${FC.wheat}" stroke="${FC.ink}" stroke-width="7"/>
+   ${[150,210,270,330].map(y=>`<line x1="150" y1="${y+20}" x2="290" y2="${y+20}" stroke="${FC.ink}" stroke-width="4" opacity=".5"/><rect x="160" y="${y-6}" width="50" height="22" rx="11" fill="${FC.org}"/><rect x="225" y="${y-6}" width="55" height="22" rx="11" fill="#E9A23B"/>`).join("")}
+   <rect x="318" y="100" width="44" height="150" rx="10" fill="${FC.ink}"/><circle cx="340" cy="130" r="9" fill="${FC.red}"/><circle cx="340" cy="162" r="9" fill="${FC.yel}"/><rect x="328" y="190" width="24" height="40" rx="5" fill="#fff"/>
+   <rect x="315" y="280" width="12" height="90" rx="6" fill="${FC.ink}"/>
+   <rect x="100" y="525" width="290" height="22" rx="8" fill="${FC.ink}"/>
+   <g transform="translate(-95 300)">
+    <rect x="0" y="210" width="190" height="24" rx="8" fill="${FC.ink}"/><rect x="130" y="40" width="40" height="180" rx="12" fill="#fff" stroke="${FC.ink}" stroke-width="7"/>
+    <rect x="10" y="20" width="170" height="54" rx="26" fill="${FC.red}" stroke="${FC.ink}" stroke-width="7"/>
+    <path d="M18 110 Q70 220 124 110 Z" fill="#fff" stroke="${FC.ink}" stroke-width="7"/><line x1="70" y1="74" x2="70" y2="150" stroke="${FC.ink}" stroke-width="7"/>
+   </g>
+   <g transform="translate(0 560)">${[0,60,120].map((x,i)=>`<circle cx="${x}" cy="${i%2?8:0}" r="26" fill="#F2C46B" stroke="${FC.ink}" stroke-width="5"/><circle cx="${x-8}" cy="${(i%2?8:0)-8}" r="6" fill="#fff" opacity=".7"/>`).join("")}</g>
+  </g>`;
+}
+function folletoP1(f){
+  const W=1240,H=1754;
+  const tiles=FEQ.map((e,i)=>{const col=i%5,row=Math.floor(i/5);const cx=140+col*240,cy=1080+row*250;const bg=[FC.red,FC.org,"#E9A23B",FC.org,FC.red][col];
+    return `<circle cx="${cx}" cy="${cy}" r="70" fill="${bg}"/><g transform="translate(${cx-40} ${cy-40}) scale(.8)">${icon(e[0])}</g>${t(cx,cy+108,e[1],26,FC.ink,800,"middle")}${e[2]?t(cx,cy+138,e[2],21,FC.mut,600,"middle"):""}`}).join("");
+  const stat=(x,big,l1,l2,col)=>`<rect x="${x}" y="1530" width="350" height="170" rx="24" fill="#fff" stroke="${FC.wheat}" stroke-width="3"/><rect x="${x}" y="1530" width="350" height="12" rx="6" fill="${col}"/>${t(x+175,1612,big,64,col,900,"middle")}${t(x+175,1652,l1,24,FC.ink,700,"middle")}${t(x+175,1682,l2,20,FC.mut,500,"middle")}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  <rect width="${W}" height="${H}" fill="${FC.bg}"/>
+  ${heroArt()}
+  <rect width="${W}" height="150" fill="${FC.red}"/><rect x="50" y="26" width="300" height="98" rx="18" fill="#fff"/>
+  ${t(W-60,72,empresa(),30,"#fff",800,"end")}${S.tel?t(W-60,112,"WhatsApp "+S.tel,26,"#FFE3B3",600,"end"):""}
+  <rect x="70" y="210" width="560" height="52" rx="26" fill="${FC.org}"/>${t(350,245,"MANTENIMIENTO PARA PANADERÍAS",24,"#fff",800,"middle","letter-spacing=\"1\"")}
+  ${t(70,360,"Tu panadería",84,FC.ink,900)}${t(70,455,"no puede",84,FC.ink,900)}${t(70,550,"parar.",84,FC.red,900)}
+  ${t(70,620,"Mantenimiento de todos tus equipos",30,FC.mut,500)}${t(70,660,"con un solo técnico responsable.",30,FC.mut,500)}
+  ${f.diag?`<rect x="70" y="700" width="520" height="70" rx="35" fill="#fff" stroke="${FC.red}" stroke-width="4"/>${check(112,735,FC.red)}${t(140,744,"Diagnóstico GRATIS de tus equipos",24,FC.red,800)}`:""}
+  ${t(70,920,"Cuidamos todos tus equipos",48,FC.ink,900)}${t(70,962,"Y también fritadoras, gaveteros, selladoras y más.",26,FC.mut,500)}
+  ${tiles}
+  ${stat(60,"2","visitas al mes","mantenimiento + seguimiento",FC.red)}${stat(445,"4 h","respuesta a fallas","prioridad en emergencias",FC.org)}${stat(830,"100%","con reporte y fotos","sabes qué se hizo",FC.red)}
+  </svg>`;
+}
+function qrSvg(text,x,y,size){
+  if(!window.qrcode)return "";try{const q=qrcode(0,"M");q.addData(text);q.make();const n=q.getModuleCount();const c=size/(n+2);let r="";
+    for(let i=0;i<n;i++)for(let j=0;j<n;j++)if(q.isDark(i,j))r+=`<rect x="${(x+(j+1)*c).toFixed(2)}" y="${(y+(i+1)*c).toFixed(2)}" width="${(c+.3).toFixed(2)}" height="${(c+.3).toFixed(2)}" fill="${FC.ink}"/>`;
+    return `<rect x="${x}" y="${y}" width="${size}" height="${size}" rx="12" fill="#fff"/>${r}`}catch(e){return ""}
+}
+function folletoP2(f){
+  const W=1240,H=1754;
+  const steps=[["1","Diagnóstico","gratis de todos","tus equipos"],["2","Plan firmado","cada equipo, sus","tareas y fechas"],["3","Visitas","programadas","cada mes"],["4","Reporte","con fotos y","recomendaciones"]];
+  const st=steps.map((s,i)=>{const cx=170+i*300;return `<circle cx="${cx}" cy="260" r="62" fill="${[FC.red,FC.org,"#E9A23B",FC.red][i]}"/>${t(cx,282,s[0],60,"#fff",900,"middle")}${t(cx,375,s[1],28,FC.ink,800,"middle")}${t(cx,410,s[2],22,FC.mut,500,"middle")}${t(cx,438,s[3],22,FC.mut,500,"middle")}`}).join("");
+  const plans=[
+    {n:"Esencial",v:"1 visita al mes",col:FC.org,b:[["Mantenimiento","programado mensual"],["Revisión de todos","los equipos"],["Descuento en","reparaciones"],["Prioridad en fallas"]]},
+    {n:"Integral",v:"2 visitas al mes",col:FC.red,top:1,b:[["Visita 1:","mantenimiento"],["Visita 2: revisión","y seguimiento general"],["Mano de obra de","reparaciones incluida"],["Soldadura de","carros y mesas"]]},
+    {n:"Total",v:"Visita cada semana",col:"#B8860B",b:[["Todo lo del","plan Integral"],["Técnico asignado"],["Respuesta a fallas","en 2 horas"],["Repuestos a precio","preferencial"]]}];
+  const card=(pl,i)=>{const x=60+i*385,y=pl.top?590:620,h=pl.top?690:660,w=350;const pr=num(f.p[i]);
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="28" fill="#fff" stroke="${pl.top?pl.col:FC.wheat}" stroke-width="${pl.top?6:3}"/>
+    <path d="M${x} ${y+28} Q${x} ${y} ${x+28} ${y} L${x+w-28} ${y} Q${x+w} ${y} ${x+w} ${y+28} L${x+w} ${y+150} L${x} ${y+150} Z" fill="${pl.col}"/>
+    ${pl.top?`<rect x="${x+w/2-110}" y="${y-26}" width="220" height="50" rx="25" fill="${FC.yel}" stroke="#fff" stroke-width="4"/>${t(x+w/2,y+8,"★ MÁS ELEGIDO",22,FC.ink,900,"middle")}`:""}
+    ${t(x+w/2,y+80,pl.n,44,"#fff",900,"middle")}${t(x+w/2,y+122,pl.v,24,"#fff",700,"middle")}
+    ${pr?`${t(x+w/2,y+205,"desde",22,FC.mut,600,"middle")}${t(x+w/2,y+262,money(pr),50,FC.ink,900,"middle")}${t(x+w/2,y+296,"al mes",22,FC.mut,600,"middle")}`:`${t(x+w/2,y+235,"Cotiza",40,FC.ink,900,"middle")}${t(x+w/2,y+278,"sin costo",28,pl.col,800,"middle")}`}
+    <line x1="${x+40}" y1="${y+330}" x2="${x+w-40}" y2="${y+330}" stroke="${FC.wheat}" stroke-width="3"/>
+    ${(()=>{let yy=y+378,out="";pl.b.forEach(it=>{out+=check(x+44,yy-8,pl.col);it.forEach((ln,k)=>{out+=t(x+70,yy+k*30,ln,22,FC.ink,k?500:700)});yy+=it.length*30+22});return out})()}`};
+  const inc=["Plan firmado y especificado","Cronograma anual por equipo","Revisión y seguimiento general","Garantía en mano de obra","Cuenta de cobro formal","Atención en "+(f.zona||"tu ciudad")];
+  const incs=inc.map((s,i)=>{const x=80+(i%2)*560,y=1395+Math.floor(i/2)*50;return check(x,y-8,FC.red)+t(x+30,y,s,24,FC.ink,600)}).join("");
+  const wa=phone(S.tel);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  <rect width="${W}" height="${H}" fill="${FC.bg}"/>
+  <rect width="${W}" height="120" fill="${FC.org}"/>${t(70,78,"Así trabajamos",46,"#fff",900)}${t(W-60,78,empresa(),26,"#fff",700,"end")}
+  <line x1="170" y1="260" x2="1070" y2="260" stroke="${FC.wheat}" stroke-width="8" stroke-dasharray="14 14"/>
+  ${st}
+  ${t(W/2,540,"Elige tu plan",54,FC.ink,900,"middle")}
+  ${plans.map(card).join("")}
+  ${t(70,1345,"Todos los planes incluyen",34,FC.ink,900)}
+  ${incs}
+  <rect x="0" y="1540" width="${W}" height="214" fill="${FC.red}"/><circle cx="120" cy="1760" r="140" fill="${FC.org}" opacity=".5"/>
+  ${t(70,1615,f.diag?"Agenda tu diagnóstico GRATIS":"Pide tu cotización hoy",46,"#fff",900)}
+  ${S.tel?t(70,1672,"WhatsApp "+S.tel,36,"#FFE3B3",800):""}${t(70,1712,"Escanea el código o escríbenos",22,"#fff",500)}
+  ${wa?qrSvg("https://wa.me/"+wa,1030,1560,175):""}
+  </svg>`;
+}
+function svgToCanvas(svg,W,H){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");x.drawImage(img,0,0,W,H);res(c)};img.onerror=()=>rej(new Error("No se pudo dibujar el folleto"));img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg)})}
+async function folletoCanvases(f){
+  const c1=await svgToCanvas(folletoP1(f),1240,1754),c2=await svgToCanvas(folletoP2(f),1240,1754);
+  const logo=await loadImg(S.logo||LOGO_DEF);
+  if(logo){const x=c1.getContext("2d");let lh=78,lw=logo.width*lh/logo.height;if(lw>280){lw=280;lh=logo.height*lw/logo.width}x.drawImage(logo,50+(300-lw)/2,26+(98-lh)/2,lw,lh)}
+  return [c1,c2];
+}
+function folletoSheet(){
+  const f=FOL();
+  sheet("Folleto para panaderías",`<div class="muted">Portafolio abierto para enviar en frío a panaderías por WhatsApp o imprimir. Usa tu logo, tu WhatsApp (Facturas → Ajustes) y los precios que pongas aquí.</div>
+   <div class="card fg"><b>Precios “desde” (opcional)</b><div class="muted">Déjalos vacíos para mostrar “Cotiza sin costo”.</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><label class="f">Esencial<input id="fp0" inputmode="numeric" value="${num(f.p[0])?esc(Math.round(num(f.p[0])).toLocaleString("es-CO")):""}" placeholder="$"></label><label class="f">Integral<input id="fp1" inputmode="numeric" value="${num(f.p[1])?esc(Math.round(num(f.p[1])).toLocaleString("es-CO")):""}" placeholder="$"></label><label class="f">Total<input id="fp2" inputmode="numeric" value="${num(f.p[2])?esc(Math.round(num(f.p[2])).toLocaleString("es-CO")):""}" placeholder="$"></label></div>
+    <label class="f">Zona de atención<input id="fz" value="${esc(f.zona)}"></label>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:700"><input type="checkbox" id="fd" ${f.diag?"checked":""} style="width:auto;transform:scale(1.3)"> Ofrecer diagnóstico gratis</label></div>
+   <button class="btn p w" type="button" id="fGo">🎨 Generar folleto</button><div id="fOut" class="fg"></div>`,pan=>{
+    pan.querySelector("#fGo").onclick=async()=>{
+      const nf={p:[0,1,2].map(i=>num(pan.querySelector("#fp"+i).value)||""),zona:pan.querySelector("#fz").value.trim(),diag:pan.querySelector("#fd").checked};D.cfg.folleto=nf;saveCfg();
+      const out=pan.querySelector("#fOut");out.innerHTML=`<div class="muted">Dibujando…</div>`;
+      try{const [c1,c2]=await folletoCanvases(nf);
+        const j1=await canvasBlob(c1,"image/jpeg",.9),j2=await canvasBlob(c2,"image/jpeg",.9);
+        const pdf=new Blob([buildPdf([new Uint8Array(await j1.arrayBuffer()),new Uint8Array(await j2.arrayBuffer())],1240,1754)],{type:"application/pdf"});
+        const base=("Mantenimiento panaderias "+empresa()).replace(/[^\w\- áéíóúñÁÉÍÓÚÑ]/g,"").trim().replace(/\s+/g,"_");
+        const F={pdf:new File([pdf],base+".pdf",{type:"application/pdf"}),i1:new File([j1],base+"_1.jpg",{type:"image/jpeg"}),i2:new File([j2],base+"_2.jpg",{type:"image/jpeg"})};
+        const msg=`🥖 ¡Hola! ¿Hablo con el administrador de la panadería? Soy ${D.cfg.tecnico||""}${D.cfg.tecnico?" de ":""}*${empresa()}* 👋\n\nNos encargamos del mantenimiento de *hornos, mojadoras, cilindros, batidoras, neveras y vitrinas* de panaderías${nf.zona?" en "+nf.zona:""}.\n\n✅ 2 visitas al mes: mantenimiento y seguimiento\n🚨 Fallas atendidas en máximo 4 horas\n📋 Plan de mantenimiento firmado y reporte con fotos\n\nTe comparto nuestro portafolio 👇${nf.diag?"\n¿Te gustaría un *diagnóstico gratis* de tus equipos esta semana?":""}`;
+        out.innerHTML=`<div class="prev"><img src="${URL.createObjectURL(j1)}" alt="Folleto página 1"></div><div class="prev"><img src="${URL.createObjectURL(j2)}" alt="Folleto página 2"></div>
+         <button class="btn g w" type="button" id="fP">📤 Folleto en PDF</button><div class="grid2"><button class="btn" type="button" id="fI1">🖼️ Página 1</button><button class="btn" type="button" id="fI2">🖼️ Página 2</button></div>
+         <label class="f">Mensaje para enviar en frío<textarea id="fM" style="min-height:220px">${esc(msg)}</textarea></label><button class="btn w" type="button" id="fC">📋 Copiar mensaje</button>
+         <div class="muted">Las imágenes sirven para estados de WhatsApp, Facebook e Instagram. Por WhatsApp envía primero el mensaje y luego las 2 imágenes: se ven sin abrir nada.</div>`;
+        out.querySelector("#fP").onclick=()=>shareFile(F.pdf);out.querySelector("#fI1").onclick=()=>shareFile(F.i1);out.querySelector("#fI2").onclick=()=>shareFile(F.i2);
+        out.querySelector("#fC").onclick=()=>copyText(out.querySelector("#fM").value);
+        out.querySelector(".prev").scrollIntoView({behavior:"smooth"});
+      }catch(e){out.innerHTML=`<div class="note">No se pudo generar el folleto: ${esc(e.message||"error")}</div>`}
+    };
+  });
+}
+
+/* ================= PLAN DE MANTENIMIENTO ANUAL (firmado y especificado) ================= */
+const TASKS={
+  frio:[["Limpieza de condensador y evaporador",1],["Temperatura, empaques y puertas",1],["Presiones y amperaje del compresor",3],["Revisión eléctrica y ajuste de conexiones",6],["Revisión completa de refrigerante y fugas",12]],
+  horno:[["Limpieza de quemadores y revisión de llama",1],["Ventilador, motor y giro del carro",1],["Sensor de llama / termocupla e ignición",3],["Prueba de fugas de gas",3],["Calibración de temperatura",6],["Empaques de puerta y ductos",6]],
+  maq:[["Lubricación y engrase",1],["Correas, cadenas, rodillos y ganchos",1],["Revisión eléctrica y paros de emergencia",3],["Nivel de aceite del reductor",3],["Cambio de aceite del reductor",12]],
+  frit:[["Limpieza de tubos y quemador",1],["Termostatos de control y de seguridad",3],["Prueba de fugas de gas",3],["Revisión eléctrica",6]],
+  gavet:[["Resistencias y humidificación",1],["Control de temperatura y humedad",3],["Empaques y puertas",6]],
+  sell:[["Resistencias y mordazas",1],["Neumática y sensores",3],["Revisión eléctrica",6]],
+  malac:[["Cable, gancho y freno",1],["Finales de carrera y botonera",3],["Lubricación",3],["Inspección estructural",12]],
+  comp:[["Purga y nivel de aceite",1],["Filtro de aire y correas",3],["Válvula de seguridad",6],["Cambio de aceite",12]],
+  extr:[["Limpieza de campana y filtros",1],["Motor, correas y rodamientos",3],["Limpieza de ductos",6]],
+  loc:[["Inspección general de instalaciones",1],["Cubiertas, canales y bajantes",6],["Redes hidráulicas y eléctricas",6]],
+  sold:[["Inspección de carros, bandejeros y mesas",1],["Reparación de soldaduras y anclajes",3],["Protección anticorrosiva",12]],
+  aire:[["Limpieza de filtros",1],["Lavado de evaporador y condensadora",3],["Presiones y amperaje",3],["Revisión eléctrica",6]],
+  elec:[["Inspección de tableros",3],["Apriete de borneras y revisión de protecciones",6]],
+  otro:[["Inspección general y limpieza",1],["Prueba de funcionamiento",1]]};
+const FCOL={1:"#9cc6f0",3:"#F28C28",6:"#D7352B",12:"#2B1D14"},FNAME={1:"Mensual",3:"Trimestral",6:"Semestral",12:"Anual"};
+function planAnualSheet(c){
+  sheet("Plan de mantenimiento · "+c.cliente,`<div class="muted">Cronograma de 12 meses con las tareas de cada equipo y su frecuencia, para firmar con el cliente.</div><div id="paOut" class="fg"><div class="muted">Generando…</div></div>`,async pan=>{
+    const out=pan.querySelector("#paOut");
+    try{const logo=await loadImg(S.logo||LOGO_DEF),firma=await loadImg(S.firma);
+      const m=document.createElement("canvas");m.width=1240;m.height=10;const r1=drawPlan(m.getContext("2d"),c,{logo,firma});
+      const cv=document.createElement("canvas");cv.width=1240;cv.height=Math.ceil(r1.h);const r2=drawPlan(cv.getContext("2d"),c,{logo,firma});
+      const pdf=await toPdf(cv,r2.breaks),img=await canvasBlob(cv,"image/jpeg",.88);
+      const name=("Plan de mantenimiento "+c.cliente).replace(/[^\w\- áéíóúñÁÉÍÓÚÑ]/g,"").trim().replace(/\s+/g,"_");
+      const F=new File([pdf],name+".pdf",{type:"application/pdf"});
+      out.innerHTML=`<div class="prev"><img src="${URL.createObjectURL(img)}" alt="Plan de mantenimiento"></div><button class="btn g w" type="button" id="paP">📤 Plan en PDF</button><div class="muted">Imprímelo o envíalo, y fírmenlo los dos al iniciar el contrato.</div>`;
+      out.querySelector("#paP").onclick=()=>shareFile(F);
+    }catch(e){out.innerHTML=`<div class="note">No se pudo generar el plan: ${esc(e.message||"error")}</div>`}
+  });
+}
+function drawPlan(ctx,c,imgs){
+  const W=1240,M=60,C=S.color||"#1f6fd1",DARK="#0f2233",MUT="#5b6b7a",TXT="#33475a",F='"Helvetica Neue", Helvetica, Arial, sans-serif';
+  const font=(s,b)=>ctx.font=(b?"700 ":"400 ")+s+"px "+F;const breaks=[];let y=50;
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,W,ctx.canvas.height);ctx.fillStyle=C;ctx.fillRect(0,0,W,12);
+  if(imgs.logo){let lh=90,lw=imgs.logo.width*lh/imgs.logo.height;if(lw>340){lw=340;lh=imgs.logo.height*lw/imgs.logo.width}ctx.drawImage(imgs.logo,M,y,lw,lh)}
+  ctx.textAlign="right";ctx.fillStyle=C;font(34,1);ctx.fillText("PLAN DE MANTENIMIENTO",W-M,y+36);ctx.fillStyle=DARK;font(24,1);ctx.fillText(c.cliente,W-M,y+72,600);
+  ctx.fillStyle=MUT;font(19);ctx.fillText(`${empresa()}${S.nit?" · NIT "+S.nit:""} · Visitas ${kVisText(c)}`,W-M,y+102,720);y+=130;
+  ctx.fillStyle=C;ctx.fillRect(M,y,W-2*M,4);y+=24;breaks.push(y);
+  // Cronograma
+  const start=c.estado==="activo"?mk(c.inicio||today()):mkAdd(mk(today()),1);const months=[...Array(12)].map((_,i)=>mkAdd(start,i));
+  ctx.textAlign="left";ctx.fillStyle=C;font(22,1);ctx.fillText("CRONOGRAMA ANUAL",M,y+24);y+=40;
+  const nameW=300,cw=(W-2*M-nameW)/12;
+  ctx.fillStyle=DARK;ctx.fillRect(M,y,W-2*M,40);ctx.fillStyle="#fff";font(17,1);ctx.fillText("Equipo",M+12,y+27);
+  months.forEach((m,i)=>{ctx.textAlign="center";ctx.fillText(mkName(m,true).toUpperCase(),M+nameW+cw*i+cw/2,y+27)});y+=40;breaks.push(y);
+  (c.equipos||[]).forEach((id,ri)=>{const g=grp(id);const tk=TASKS[g]||TASKS.otro;const rh=44;
+    if(ri%2){ctx.fillStyle="#f6f9fc";ctx.fillRect(M,y,W-2*M,rh)}
+    ctx.textAlign="left";ctx.fillStyle=DARK;font(18,1);ctx.fillText(`${kCant(c,id)} × ${eq(id).n}`,M+12,y+28,nameW-20);
+    months.forEach((m,i)=>{const due=tk.filter(x=>i%x[1]===0).map(x=>x[1]);if(!due.length)return;const mx=Math.max(...due);ctx.fillStyle=FCOL[mx];ctx.beginPath();ctx.arc(M+nameW+cw*i+cw/2,y+rh/2,mx===1?7:11,0,Math.PI*2);ctx.fill()});
+    y+=rh;ctx.fillStyle="#e3e9ef";ctx.fillRect(M,y-1,W-2*M,1);breaks.push(y)});
+  y+=14;ctx.textAlign="left";font(17);let lx=M;[1,3,6,12].forEach(f=>{ctx.fillStyle=FCOL[f];ctx.beginPath();ctx.arc(lx+10,y+10,f===1?7:10,0,Math.PI*2);ctx.fill();ctx.fillStyle=TXT;ctx.fillText(FNAME[f],lx+26,y+16);lx+=170});
+  ctx.fillStyle=MUT;ctx.fillText("El punto muestra la tarea de mayor alcance del mes; incluye las de menor frecuencia.",M,y+46,W-2*M);y+=70;breaks.push(y);
+  // Tareas
+  ctx.fillStyle=C;font(22,1);ctx.fillText("TAREAS POR EQUIPO",M,y+24);y+=40;breaks.push(y);
+  (c.equipos||[]).forEach(id=>{const tk=TASKS[grp(id)]||TASKS.otro;
+    ctx.fillStyle="#f2f6fa";rrect(ctx,M,y,W-2*M,40,8);ctx.fill();ctx.fillStyle=DARK;font(19,1);ctx.textAlign="left";ctx.fillText(`${kCant(c,id)} × ${eq(id).n}`,M+14,y+27);y+=46;breaks.push(y);
+    tk.forEach(x=>{ctx.textAlign="left";ctx.fillStyle=TXT;font(18);ctx.fillText("• "+x[0],M+24,y+22,760);ctx.textAlign="right";ctx.fillStyle=FCOL[x[1]]==="#9cc6f0"?C:FCOL[x[1]];font(17,1);ctx.fillText(FNAME[x[1]],W-M-14,y+22);y+=30;breaks.push(y)});y+=8});
+  // Visitas y condiciones
+  y+=6;ctx.textAlign="left";ctx.fillStyle=C;font(22,1);ctx.fillText("VISITAS Y ATENCIÓN",M,y+24);y+=40;
+  const lines=[kVis(c)==="quincenal"||kVis(c)==="semanal"?`Visitas ${kVisText(c)}: la primera del mes es de mantenimiento programado y las demás de revisión y seguimiento general de todos los equipos.`:`Visitas ${kVisText(c)} de mantenimiento programado y revisión general.`,`Atención de fallas en máximo ${num(c.resp)||4} horas (${c.horario||"lunes a sábado"}).`,"Después de cada visita se entrega reporte con fotos y recomendaciones."];
+  font(18);lines.forEach(l=>{wrap(ctx,"• "+l,W-2*M-20).forEach(w2=>{ctx.fillStyle=TXT;ctx.fillText(w2,M+10,y+22);y+=28});breaks.push(y)});
+  // Firmas
+  y+=50;const sw=(W-2*M-80)/2;
+  if(imgs.firma){const fh=80,fw=Math.min(300,imgs.firma.width*fh/imgs.firma.height);ctx.drawImage(imgs.firma,M,y,fw,fw*imgs.firma.height/imgs.firma.width)}
+  y+=90;ctx.fillStyle=DARK;ctx.fillRect(M,y,sw,2);ctx.fillRect(M+sw+80,y,sw,2);font(19,1);ctx.textAlign="left";ctx.fillText(S.firmaNombre||empresa(),M,y+28,sw);ctx.fillText("Cliente: "+c.cliente,M+sw+80,y+28,sw);
+  ctx.fillStyle=MUT;font(17);ctx.fillText("Responsable del mantenimiento",M,y+52,sw);ctx.fillText("Nombre, CC/NIT y fecha",M+sw+80,y+52,sw);y+=80;breaks.push(y);
+  return {h:y+30,breaks};
 }
 
 function paintBadges(){const b=document.querySelector('#tabs [data-tab="ventas"]');if(!b)return;let i=b.querySelector("i.bdg");const n=leadsDue().length;if(n){if(!i){i=document.createElement("i");i.className="bdg";b.append(i)}i.textContent=n>9?"9+":n}else if(i)i.remove()}

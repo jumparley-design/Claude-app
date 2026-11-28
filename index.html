@@ -493,6 +493,8 @@ const ACT={
   kFalla:b=>{const c=D.contratos.find(x=>x.id===b.dataset.id);if(c)kExtraJob(c,"falla")},
   kExtra:b=>{const c=D.contratos.find(x=>x.id===b.dataset.id);if(c)kExtraJob(c,"extra")},
   kDoc:b=>{const d=D.fdocs.find(x=>x.id===b.dataset.id);if(d){go("facturas");preview(d)}},
+  repJ:b=>repSheet(D.trabajos.find(j=>j.id===b.dataset.id)),
+  kRent:b=>{const c=D.contratos.find(x=>x.id===b.dataset.id);if(c)rentSheet(c.cliente,c)},
   report:b=>reportSheet(D.trabajos.find(j=>j.id===b.dataset.id)),
   goT:b=>{if(b.dataset.sub)UI.agTab=b.dataset.sub;if(b.dataset.vs)UI.vSeg=b.dataset.vs;go(b.dataset.t)}
 };
@@ -713,7 +715,7 @@ function jobCard(j){
    ${j.notif&&j.notif.length?`<small style="color:var(--ok)">📲 Avisado: ${esc(j.notif[j.notif.length-1].tpl)} · ${esc(fmtD(j.notif[j.notif.length-1].f))}</small>`:""}
    <div class="acts"><button class="btn wa sm" type="button" data-act="notify" data-id="${esc(j.id)}">📲 Avisar</button>
    ${j.estado!=="terminado"&&j.estado!=="cancelado"?`<button class="btn sm" type="button" data-act="jobState" data-id="${esc(j.id)}">${j.estado==="programado"?"✔ Confirmar":j.estado==="confirmado"?"▶ Iniciar":"🏁 Terminar"}</button>`:""}
-   ${j.estado==="en_curso"||j.estado==="terminado"?`<button class="btn sm" type="button" data-act="report" data-id="${esc(j.id)}">📋 Reporte${j.reporte?" ✔":""}</button>`:""}
+   ${j.estado==="en_curso"||j.estado==="terminado"?`<button class="btn sm" type="button" data-act="report" data-id="${esc(j.id)}">📋 Reporte${j.reporte?" ✔":""}</button><button class="btn sm" type="button" data-act="repJ" data-id="${esc(j.id)}">🔩 Repuestos${(j.rep||[]).length?" ("+j.rep.length+")":""}</button>`:""}
    <button class="btn sm" type="button" data-act="editJob" data-id="${esc(j.id)}">✏️ Editar</button></div></div></div>`;
 }
 function vAgenda(V){
@@ -762,12 +764,14 @@ function jobForm(j,pre,onSaved){
    <label class="f">Notas<textarea id="jN" placeholder="Qué llevar, falla reportada, acceso…">${esc(j.notas)}</textarea></label>
    <button class="btn p w" type="button" id="jSave">${isNew?"Guardar y avisar al cliente":"Guardar cambios"}</button>
    ${!isNew&&j.estado==="terminado"?`<button class="btn g w" type="button" id="jCC">🧾 Hacer cuenta de cobro${num(j.valor)?" por "+money(j.valor):""}</button>`:""}
+   ${!isNew?`<button class="btn w" type="button" id="jRep">🔩 Repuestos usados${(j.rep||[]).length?" ("+j.rep.length+")":""}</button>`:""}
    ${!isNew?`<button class="btn d w" type="button" id="jDel">Eliminar trabajo</button>`:""}</div>`,pan=>{
     const g=id=>pan.querySelector("#"+id);
     g("jC").addEventListener("change",()=>{const c=cl.find(x=>x.n.toLowerCase()===g("jC").value.trim().toLowerCase());if(c){if(!g("jT").value)g("jT").value=c.tel||"";if(!g("jD").value)g("jD").value=c.dir||""}});
     const read=()=>Object.assign(j,{cliente:g("jC").value.trim(),tel:g("jT").value.trim(),dir:g("jD").value.trim(),fecha:g("jF").value||today(),hora:g("jH").value,equipo:g("jQ").value,servicio:g("jS").value,tecnico:g("jK").value.trim(),dur:g("jR").value.trim(),valor:num(g("jV").value)||"",notas:g("jN").value.trim(),estado:g("jE").value});
     g("jSave").onclick=()=>{read();if(!j.cliente){toast("Escribe el cliente");g("jC").focus();return}put("trabajos",j);upsertClient({nombre:j.cliente,tel:j.tel,dir:j.dir});UI.agDay=j.fecha;UI.agWeek=null;toast(isNew?"Trabajo agendado ✔":"Guardado ✔");onSaved&&onSaved(j);if(isNew){sheetOpen=false;notifySheet(j,"conf")}else closeSheet()};
-    if(g("jCC"))g("jCC").onclick=()=>{read();put("trabajos",j);$("#sheetRoot").innerHTML="";sheetOpen=false;const c=CLI().find(x=>x.nombre.toLowerCase()===j.cliente.toLowerCase())||{nombre:j.cliente,tel:j.tel,dir:j.dir};const n=newDoc("cc",c);n.items=[{d:`${j.servicio||"Servicio"} · ${eq(j.equipo).n}${j.notas?" — "+j.notas:""}`,c:1,p:num(j.valor)||0}];if(j.contrato){const kk=D.contratos.find(c=>c.id===j.contrato);if(kk&&num(kk.descMO))n.notas="Cliente con contrato de mantenimiento: "+num(kk.descMO)+" % de descuento en mano de obra."}TAB="facturas";try{location.hash="facturas"}catch(e){}edit(n);render()};
+    if(g("jRep"))g("jRep").onclick=()=>{read();put("trabajos",j);sheetOpen=false;repSheet(j)};
+    if(g("jCC"))g("jCC").onclick=()=>{read();put("trabajos",j);$("#sheetRoot").innerHTML="";sheetOpen=false;const c=CLI().find(x=>x.nombre.toLowerCase()===j.cliente.toLowerCase())||{nombre:j.cliente,tel:j.tel,dir:j.dir};const n=newDoc("cc",c);n.items=[{d:`${j.servicio||"Servicio"} · ${eq(j.equipo).n}${j.notas?" — "+j.notas:""}`,c:1,p:num(j.valor)||0}];if(j.contrato){const kk=D.contratos.find(c=>c.id===j.contrato);if(kk&&num(kk.descMO))n.notas="Cliente con contrato de mantenimiento: "+num(kk.descMO)+" % de descuento en mano de obra."}const rr=(j.rep||[]).filter(r=>r.cobro==="cliente"&&num(r.precio)>0);if(rr.length){if(!num(j.valor))n.items=[];n.items=n.items.concat(rr.map(r=>({d:"Repuesto: "+r.d,c:num(r.cant)||1,p:num(r.precio)})));if(!n.items.length)n.items=[{d:"",c:1,p:0}]}TAB="facturas";try{location.hash="facturas"}catch(e){}edit(n);render()};
     if(g("jDel"))g("jDel").onclick=()=>{const b=g("jDel");if(b.dataset.sure){if(j.contrato&&j.periodo){const k=D.contratos.find(c=>c.id===j.contrato);if(k){k.omit=(k.omit||[]).concat([j.periodo]);put("contratos",k)}}del("trabajos",j.id);toast("Trabajo eliminado");closeSheet()}else{b.dataset.sure="1";b.textContent="¿Seguro? Toca otra vez para eliminar"}};
   });
 }
@@ -847,6 +851,8 @@ function vFinanzas(V){
       <div class="muted" style="margin-top:8px">Calculado con la tendencia de tus últimos ${pr.hist.length} meses con movimientos. Conservador baja las ventas 15 %; optimista las sube 15 %.</div>`
      :`<div class="empty" style="margin-top:8px"><b>Faltan datos para proyectar</b>Registra ingresos y gastos de al menos 2 meses anteriores (o crea cuentas de cobro y recibos en Facturas) y aquí verás la proyección.</div>`}
      <div class="grid2" style="margin-top:10px"><div class="kpi"><small>⏳ Por cobrar</small><b style="color:var(--warn)">${money(cob)}</b></div><div class="kpi"><small>📝 Cotizaciones pendientes</small><b>${money(cot)}</b></div></div></div>
+    ${(()=>{const by={};D.trabajos.filter(j=>mk(j.fecha||"")===k&&(j.rep||[]).length).forEach(j=>{const n=j.cliente||"Sin cliente";const t=repTot(j.rep);by[n]=by[n]||{costo:0,absorb:0,cobrado:0};by[n].costo+=t.costo;by[n].absorb+=t.absorb;by[n].cobrado+=t.cobrado});const e=Object.entries(by).sort((a,b)=>b[1].costo-a[1].costo);if(!e.length)return "";
+      return `<div class="card"><b>🔩 Repuestos por cliente</b><div style="overflow-x:auto;margin-top:6px"><table class="t"><thead><tr><th>Cliente</th><th>Costo</th><th>Cobrado</th><th>Pusiste tú</th></tr></thead><tbody>${e.map(([n,v])=>`<tr><td style="white-space:normal">${esc(n)}</td><td>${esc(short(v.costo))}</td><td>${esc(short(v.cobrado))}</td><td style="color:${v.absorb?"var(--warn)":"inherit"}">${esc(short(v.absorb))}</td></tr>`).join("")}</tbody></table></div></div>`})()}
     <div class="card"><b>¿En qué se va la plata?</b>
      ${cats.length?`<div class="hbar" style="margin-top:10px">${cats.map(([c,v])=>`<div><span>${esc(c)}</span><b>${money(v)}</b><span class="t"><i style="width:${Math.max(3,v/maxC*100)}%;background:${clase(c)==="costo"?"var(--cost)":"var(--warn)"}"></i></span></div>`).join("")}</div>`:`<div class="muted" style="margin-top:6px">Sin gastos registrados este mes.</div>`}</div>
     <div class="grid2"><button class="btn g" type="button" data-act="newMov" data-t="ingreso">＋ Ingreso</button><button class="btn" type="button" data-act="newMov" data-t="egreso" style="border-color:var(--cost);color:var(--cost)">＋ Gasto / costo</button></div>
@@ -1290,9 +1296,11 @@ function vCliente(n){
   <button class="btn" type="button" id="cJob">📅 Agendar trabajo</button>
   <button class="btn p w" type="button" id="ec">📊 Estado de cuenta (PDF para el cliente)</button>
   <h3>Documentos</h3><div class="list">${ds.map(rowDoc).join("")||'<p class="muted">Sin documentos.</p>'}</div>
+  ${(()=>{const rr=repCliente(c.nombre);if(!rr.length)return "";const t=repTot(rr);return `<h3>🔩 Repuestos usados</h3><button class="row" type="button" id="cRep"><span class="em">🔩</span><span class="tx"><b>${rr.length} repuesto(s) · costo ${money(t.costo)}</b><small>Cobrados ${money(t.cobrado)}${t.absorb?" · pusiste tú "+money(t.absorb):""}</small></span><span class="rt" style="color:var(--brand2)">Ver ›</span></button>`})()}
   ${jobs.length?`<h3>Trabajos</h3><div class="list">${jobs.slice(0,10).map(j=>`<div class="row"><span class="em">${eq(j.equipo).i}</span><span class="tx"><b>${esc(j.servicio||"Trabajo")}</b><small>${esc(fmtD(j.fecha))} · ${esc(eq(j.equipo).n)}</small></span><span class="pill ${esc(j.estado)}">${esc(estN(j.estado))}</span></div>`).join("")}</div>`:""}</div>`;
   $("#view").querySelectorAll("[data-new]").forEach(b=>b.onclick=()=>edit(newDoc(b.dataset.new,c)));
   $("#cJob").onclick=()=>jobForm(null,{cliente:c.nombre,tel:c.tel,dir:c.dir});
+  if($("#cRep"))$("#cRep").onclick=()=>rentSheet(c.nombre,D.contratos.find(k=>(k.cliente||"").toLowerCase()===c.nombre.toLowerCase()));
   $("#ec").onclick=()=>reportPreview(estadoCuenta(c,ds),"Estado_de_cuenta_"+n.replace(/\s+/g,"_"),()=>vCliente(n));
   bindCommon($("#view"));
 }
@@ -1692,7 +1700,7 @@ function vContratos(B){
       ${n?`<small>➡️ Próxima: ${esc(longD(n.fecha))} · ${esc(estN(n.estado))}</small>`:""}
       ${ld?`<small>🧾 Último cobro: ${esc(ld.num)} · ${esc(ld.estado)}</small>`:""}
       ${extras.length?`<small>🔧 ${extras.length} falla(s) / trabajo(s) adicional(es) · último: ${esc(extras[0].servicio||"")} ${esc(fmtD(extras[0].fecha))}</small>`:""}
-      <div class="acts"><button class="btn sm d" type="button" data-act="kFalla" data-id="${esc(c.id)}" style="color:var(--bad)">🚨 Falla</button><button class="btn sm" type="button" data-act="kExtra" data-id="${esc(c.id)}">＋ Trabajo extra</button>${ld?`<button class="btn sm" type="button" data-act="kDoc" data-id="${esc(ld.id)}">🧾 Cobro</button>`:""}<button class="btn sm" type="button" data-act="kEdit" data-id="${esc(c.id)}">✏️</button></div></div></div>`}).join("")}</div>`
+      <div class="acts"><button class="btn sm d" type="button" data-act="kFalla" data-id="${esc(c.id)}" style="color:var(--bad)">🚨 Falla</button><button class="btn sm" type="button" data-act="kExtra" data-id="${esc(c.id)}">＋ Trabajo extra</button>${ld?`<button class="btn sm" type="button" data-act="kDoc" data-id="${esc(ld.id)}">🧾 Cobro</button>`:""}<button class="btn sm" type="button" data-act="kRent" data-id="${esc(c.id)}">🔩 Rentab.</button><button class="btn sm" type="button" data-act="kEdit" data-id="${esc(c.id)}">✏️</button></div></div></div>`}).join("")}</div>`
    :`<div class="empty"><b>Aún no tienes contratos</b>Un contrato de mantenimiento te da ingreso fijo. Las visitas se agendan solas, las fallas quedan registradas y la cuenta de cobro sale con un toque.</div>`}`;
   if($("#kGen"))$("#kGen").onclick=cobrosSheet;
 }
@@ -1845,6 +1853,65 @@ function drawReport(ctx,v,imgs){
     ctx.fillStyle=DARK;ctx.fillRect(M,y,400,2);font(21,1);ctx.fillText(S.firmaNombre||S.empresa,M,y+30,400);y+=50}
   breaks.push(y);y+=30;ctx.textAlign="center";if(S.pie){ctx.fillStyle=MUT;font(19);for(const l of wrap(ctx,S.pie,W-2*M)){ctx.fillText(l,W/2,y+20);y+=27}}
   y+=40;return {h:y,breaks};
+}
+
+/* ================= REPUESTOS POR TRABAJO Y CLIENTE ================= */
+const RCOB=[["cliente","💵 Se cobra al cliente"],["contrato","🔁 Incluido en contrato"],["garantia","🛡️ Garantía (lo pones tú)"]];
+const rcobN=id=>(RCOB.find(x=>x[0]===id)||RCOB[0])[1];
+function repTot(rows){let costo=0,cobrado=0,absorb=0;(rows||[]).forEach(r=>{const c=num(r.cant||1)*num(r.costo),p=num(r.cant||1)*num(r.precio);costo+=c;if(r.cobro==="cliente")cobrado+=p;else absorb+=c});return {costo,cobrado,absorb,util:cobrado-costo}}
+function repNames(){const m=new Map();D.trabajos.forEach(j=>(j.rep||[]).forEach(r=>{if(r.d)m.set(r.d.trim().toLowerCase(),r)}));return m}
+function repSync(j){
+  const t=repTot(j.rep);const id="rp_"+j.id;const ex=D.movs.find(m=>m.id===id);
+  if(t.costo>0)put("movs",{id,tipo:"egreso",cat:"Repuestos y materiales",monto:Math.round(t.costo),fecha:j.fecha||today(),desc:`Repuestos · ${j.cliente||""} · ${j.servicio||""}`,job:j.id});
+  else if(ex)del("movs",id);
+}
+function repSheet(j){
+  if(!j)return;const rows=JSON.parse(JSON.stringify(j.rep||[]));if(!rows.length)rows.push({d:"",cant:1,costo:"",precio:"",cobro:j.contrato?"contrato":"cliente"});
+  const names=repNames();
+  sheet("Repuestos · "+(j.cliente||""),`<div class="muted">${esc(j.servicio||"")} · ${esc(fmtD(j.fecha))}. El costo se registra solo en Finanzas como “Repuestos y materiales”.</div>
+   <datalist id="rpNm">${[...names.values()].map(r=>`<option value="${esc(r.d)}"></option>`).join("")}</datalist>
+   <div class="list" id="rpRows"></div>
+   <button class="btn sm" type="button" id="rpAdd" style="justify-self:start">＋ Agregar repuesto</button>
+   <div class="card" id="rpTot"></div>
+   <button class="btn p w" type="button" id="rpSv">Guardar repuestos</button>`,pan=>{
+    const R=pan.querySelector("#rpRows");
+    const totals=()=>{const t=repTot(rows);pan.querySelector("#rpTot").innerHTML=`<div class="tot"><span>Te costaron</span><b style="color:var(--cost)">${money(t.costo)}</b></div><div class="tot"><span>Se cobran al cliente</span><b class="up">${money(t.cobrado)}</b></div>${t.absorb?`<div class="tot"><span>Los pones tú (contrato / garantía)</span><b style="color:var(--warn)">${money(t.absorb)}</b></div>`:""}<div class="tot big"><span>Ganancia en repuestos</span><span class="${t.util>=0?"up":"down"}">${money(t.util)}</span></div>`};
+    const draw=()=>{R.innerHTML=rows.map((r,i)=>`<div class="item">
+      <div style="display:grid;grid-template-columns:1fr 34px;gap:6px"><input data-i="${i}" data-k="d" list="rpNm" value="${esc(r.d)}" placeholder="Ej: Rodamiento 6205 2RS, correa A-42, capacitor 35 µF"><button class="x" type="button" data-rm="${i}" aria-label="Quitar">✕</button></div>
+      <div style="display:grid;grid-template-columns:.6fr 1fr 1fr;gap:6px"><label class="f">Cant.<input data-i="${i}" data-k="cant" inputmode="decimal" value="${esc(r.cant)}"></label><label class="f">Te costó c/u<input data-i="${i}" data-k="costo" inputmode="numeric" value="${num(r.costo)?esc(num(r.costo)):""}" placeholder="$ 0"></label><label class="f">Cobras c/u<input data-i="${i}" data-k="precio" inputmode="numeric" value="${num(r.precio)?esc(num(r.precio)):""}" placeholder="$ 0"></label></div>
+      <select data-i="${i}" data-k="cobro">${RCOB.map(x=>`<option value="${x[0]}" ${x[0]===r.cobro?"selected":""}>${x[1]}</option>`).join("")}</select></div>`).join("");totals()};
+    draw();
+    R.addEventListener("input",e=>{const el=e.target;const i=el.dataset.i;if(i==null)return;rows[+i][el.dataset.k]=el.dataset.k==="d"||el.dataset.k==="cobro"?el.value:el.value;totals()});
+    R.addEventListener("change",e=>{const el=e.target;const i=el.dataset.i;if(i==null)return;const r=rows[+i];r[el.dataset.k]=el.value;
+      if(el.dataset.k==="d"){const prev=names.get(el.value.trim().toLowerCase());if(prev){if(!num(r.costo))r.costo=prev.costo;if(!num(r.precio))r.precio=prev.precio;draw()}}totals()});
+    R.addEventListener("click",e=>{const b=e.target.closest("[data-rm]");if(!b)return;rows.splice(+b.dataset.rm,1);draw()});
+    pan.querySelector("#rpAdd").onclick=()=>{rows.push({d:"",cant:1,costo:"",precio:"",cobro:j.contrato?"contrato":"cliente"});draw();const ins=R.querySelectorAll('input[data-k="d"]');ins[ins.length-1].focus()};
+    pan.querySelector("#rpSv").onclick=()=>{
+      j.rep=rows.filter(r=>String(r.d).trim()||num(r.costo)||num(r.precio)).map(r=>({d:String(r.d).trim(),cant:num(r.cant)||1,costo:num(r.costo),precio:num(r.precio),cobro:r.cobro||"cliente"}));
+      put("trabajos",j);repSync(j);toast("Repuestos guardados ✔");closeSheet()};
+  });
+}
+// Repuestos de un cliente en un mes (o todos)
+function repCliente(nombre,k){
+  const n=(nombre||"").trim().toLowerCase();const out=[];
+  D.trabajos.filter(j=>(j.cliente||"").trim().toLowerCase()===n&&(!k||mk(j.fecha||"")===k)).forEach(j=>(j.rep||[]).forEach(r=>out.push(Object.assign({f:j.fecha,serv:j.servicio},r))));
+  return out.sort((a,b)=>(b.f||"").localeCompare(a.f||""));
+}
+function facturadoCliente(nombre,k){const n=(nombre||"").trim().toLowerCase();return D.fdocs.filter(d=>d.tipo==="cc"&&d.cliente&&(d.cliente.nombre||"").trim().toLowerCase()===n&&(!k||mk(d.fecha||"")===k)).reduce((a,d)=>a+calc(d).total,0)}
+function rentSheet(nombre,c){
+  let k=mk(today());
+  sheet("Repuestos y rentabilidad",`<div class="muted"><b style="color:var(--text)">${esc(nombre)}</b>${c?" · contrato "+esc(money(c.valor))+" "+esc(CMES.find(x=>x[0]===kCM(c))[1]):""}</div>
+   <div class="chips" id="rtM"></div><div id="rtB" class="fg"></div>`,pan=>{
+    const draw=()=>{
+      pan.querySelector("#rtM").innerHTML=[0,1,2,3,4,5].map(i=>mkAdd(mk(today()),-i)).concat(["todo"]).map(m=>`<button class="chip ${m===k?"on":""}" type="button" data-m="${m}">${m==="todo"?"Todo":esc(mkName(m,true))+" "+m.slice(2,4)}</button>`).join("");
+      const kk=k==="todo"?null:k;const rows=repCliente(nombre,kk);const t=repTot(rows);const fac=facturadoCliente(nombre,kk);
+      pan.querySelector("#rtB").innerHTML=`<div class="kpis"><div class="kpi"><small>Facturado</small><b class="up">${money(fac)}</b></div><div class="kpi"><small>Repuestos (costo)</small><b style="color:var(--cost)">${money(t.costo)}</b></div><div class="kpi"><small>Pusiste tú</small><b style="color:var(--warn)">${money(t.absorb)}</b></div><div class="kpi"><small>Queda (sin tu tiempo)</small><b class="${fac-t.costo>=0?"up":"down"}">${money(fac-t.costo)}</b></div></div>
+       ${c&&t.absorb>num(c.valor)*0.3?`<div class="card" style="border-color:#5a4a1a"><b>⚠️ Los repuestos incluidos se están comiendo el contrato</b><div class="muted" style="margin-top:4px">Pusiste ${money(t.absorb)} en repuestos incluidos, más del 30 % del valor del contrato. Considera cobrar los repuestos aparte o ajustar el valor.</div></div>`:""}
+       ${rows.length?`<div style="overflow-x:auto"><table class="t"><thead><tr><th>Repuesto</th><th>Cant.</th><th>Costo</th><th>Quién paga</th></tr></thead><tbody>${rows.map(r=>`<tr><td style="white-space:normal">${esc(r.d)}<div class="muted" style="font-size:.72rem">${esc(fmtD(r.f))} · ${esc(r.serv||"")}</div></td><td>${esc(r.cant)}</td><td>${money(num(r.cant)*num(r.costo))}</td><td>${esc(rcobN(r.cobro).split(" ")[0])}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty"><b>Sin repuestos en este periodo</b>Regístralos desde cada trabajo con “🔩 Repuestos”.</div>`}
+       <div class="muted">💵 cobrado al cliente · 🔁 incluido en contrato · 🛡️ garantía. “Facturado” suma las cuentas de cobro del periodo.</div>`;
+    };
+    draw();pan.querySelector("#rtM").onclick=e=>{const b=e.target.closest("[data-m]");if(b){k=b.dataset.m;draw()}};
+  });
 }
 
 function paintBadges(){const b=document.querySelector('#tabs [data-tab="ventas"]');if(!b)return;let i=b.querySelector("i.bdg");const n=leadsDue().length;if(n){if(!i){i=document.createElement("i");i.className="bdg";b.append(i)}i.textContent=n>9?"9+":n}else if(i)i.remove()}

@@ -13,6 +13,7 @@
   --r:16px; color-scheme:dark;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
 html,body{min-height:100%}
 body{background:radial-gradient(900px 520px at 0% -8%,rgba(47,140,255,.20),transparent 62%),radial-gradient(700px 460px at 105% 4%,rgba(34,211,238,.13),transparent 60%),var(--bg);background-attachment:fixed;color:var(--text);font:15px/1.5 var(--f-b);font-variant-numeric:tabular-nums}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:#0a111c}
@@ -260,15 +261,24 @@ const EQ=[
  {id:"totem",i:"🗼",n:"Horno tótem",d:"Torre, bandejas, gas o eléctrico"},
  {id:"gavet",i:"🗄️",n:"Gavetero / fermentadora",d:"Cámara de crecimiento, humedad"},
  {id:"pandeb",i:"🧀",n:"Pandebonero",d:"Hornos de bandejas para pandebono"},
- {id:"sold",i:"⚒️",n:"Soldadura y estructuras",d:"SMAW, MIG, TIG, perfiles"},
+ {id:"sold",i:"⚒️",n:"Soldadura, estructuras y cerramientos",d:"SMAW, MIG, TIG, perfiles, rejas, cerramientos"},
  {id:"elec",i:"⚡",n:"Electricidad y motores",d:"Tableros, contactores, motores"},
+ {id:"mojadora",i:"🌀",n:"Mojadora / amasadora",d:"Amasadoras de espiral o de brazo, tazón y transmisión"},
+ {id:"cilindro",i:"⚙️",n:"Cilindro / laminadora",d:"Cilindros de masa, rodillos y laminadoras"},
+ {id:"batidora",i:"🥣",n:"Batidora / divisora",d:"Batidoras planetarias, divisoras y boleadoras"},
+ {id:"selladora",i:"📦",n:"Selladora / empacadora",d:"Selladoras térmicas, flow-pack, mordazas y resistencias"},
+ {id:"banda",i:"🛤️",n:"Bandas / transportadores",d:"Bandas, rodillos y motorreductores"},
+ {id:"malacate",i:"🏗️",n:"Malacate / elevador",d:"Malacates, polipastos y montacargas"},
+ {id:"compresor",i:"💨",n:"Compresor de aire",d:"Compresores y redes neumáticas"},
+ {id:"extraccion",i:"🌬️",n:"Extracción / ventilación",d:"Extractores, campanas y ductos"},
+ {id:"locativo",i:"🏢",n:"Mantenimiento locativo",d:"Cubiertas, pisos, pintura, hidráulico e iluminación"},
  {id:"otro",i:"🛠️",n:"Otro equipo",d:"Cualquier otro caso"}
 ];
 const TC=[
  {id:"falla",i:"🩺",n:"Diagnóstico de falla"},{id:"codigo",i:"🔢",n:"Código de error"},{id:"instal",i:"🧰",n:"Instalación"},
  {id:"mant",i:"🧽",n:"Mantenimiento"},{id:"calc",i:"📐",n:"Cálculo / selección"},{id:"rep",i:"🔄",n:"Repuestos / equivalencias"},{id:"norma",i:"📋",n:"Procedimiento / norma"}
 ];
-const SERV=["Mantenimiento preventivo","Reparación","Diagnóstico / visita técnica","Instalación","Garantía","Montaje / soldadura","Trabajo eléctrico"];
+const SERV=["Mantenimiento preventivo","Atención de falla / emergencia","Reparación","Mantenimiento locativo","Cerramientos","Diagnóstico / visita técnica","Instalación","Garantía","Montaje / soldadura","Trabajo eléctrico"];
 const EST=[["programado","Programado"],["confirmado","Confirmado"],["en_curso","En curso"],["terminado","Terminado"],["cancelado","Cancelado"]];
 const CAT={
  ingreso:["Servicio técnico","Instalación","Mantenimiento","Venta de repuestos","Contrato","Otro ingreso"],
@@ -480,6 +490,8 @@ const ACT={
   leadNext:b=>{const l=D.leads.find(x=>x.id===b.dataset.id);if(!l)return;const n=nextStep(l);if(n&&n.tpl==="motivo")lostSheet(l);else leadMsg(l)},
   kNew:()=>contratoForm(null),
   kEdit:b=>contratoForm(D.contratos.find(c=>c.id===b.dataset.id)),
+  kFalla:b=>{const c=D.contratos.find(x=>x.id===b.dataset.id);if(c)kExtraJob(c,"falla")},
+  kExtra:b=>{const c=D.contratos.find(x=>x.id===b.dataset.id);if(c)kExtraJob(c,"extra")},
   kDoc:b=>{const d=D.fdocs.find(x=>x.id===b.dataset.id);if(d){go("facturas");preview(d)}},
   report:b=>reportSheet(D.trabajos.find(j=>j.id===b.dataset.id)),
   goT:b=>{if(b.dataset.sub)UI.agTab=b.dataset.sub;if(b.dataset.vs)UI.vSeg=b.dataset.vs;go(b.dataset.t)}
@@ -568,7 +580,7 @@ function newConsulta(eqId){
 }
 
 /* chat */
-const RULES=`Eres el asistente técnico de un taller colombiano de refrigeración comercial e industrial, aire acondicionado, hornos de panadería (rotativos, atmosféricos, de pisos, tótem, gaveteros, pandeboneros, fermentadoras), soldadura y estructuras metálicas, y electricidad. Respondes a un técnico profesional como lo haría un técnico senior con 30 años de campo y formación de ingeniería.
+const RULES=`Eres el asistente técnico de un taller colombiano de refrigeración comercial e industrial, aire acondicionado, hornos de panadería (rotativos, atmosféricos, de pisos, tótem, gaveteros, pandeboneros, fermentadoras), maquinaria de plantas de panificación y alimentos (mojadoras/amasadoras, cilindros/laminadoras de masa, batidoras, divisoras, selladoras y empacadoras, bandas transportadoras), malacates y elevadores de carga, compresores de aire, extracción, mantenimiento locativo, soldadura, estructuras metálicas y cerramientos, y electricidad. Respondes a un técnico profesional como lo haría un técnico senior con 30 años de campo y formación de ingeniería.
 
 Contexto: Colombia, 60 Hz, tensiones 120, 208, 220/240 y 440/480 V; gas natural y GLP. Normas de referencia cuando apliquen: RETIE, NTC 2050, Resolución 90902 de 2013 (instalaciones de gas), NTC 2505, ASHRAE, AWS D1.1/D1.3. Da unidades métricas y, cuando ayude, las de campo (psi, °F, BTU/h, TR, AWG).
 
@@ -755,7 +767,7 @@ function jobForm(j,pre,onSaved){
     g("jC").addEventListener("change",()=>{const c=cl.find(x=>x.n.toLowerCase()===g("jC").value.trim().toLowerCase());if(c){if(!g("jT").value)g("jT").value=c.tel||"";if(!g("jD").value)g("jD").value=c.dir||""}});
     const read=()=>Object.assign(j,{cliente:g("jC").value.trim(),tel:g("jT").value.trim(),dir:g("jD").value.trim(),fecha:g("jF").value||today(),hora:g("jH").value,equipo:g("jQ").value,servicio:g("jS").value,tecnico:g("jK").value.trim(),dur:g("jR").value.trim(),valor:num(g("jV").value)||"",notas:g("jN").value.trim(),estado:g("jE").value});
     g("jSave").onclick=()=>{read();if(!j.cliente){toast("Escribe el cliente");g("jC").focus();return}put("trabajos",j);upsertClient({nombre:j.cliente,tel:j.tel,dir:j.dir});UI.agDay=j.fecha;UI.agWeek=null;toast(isNew?"Trabajo agendado ✔":"Guardado ✔");onSaved&&onSaved(j);if(isNew){sheetOpen=false;notifySheet(j,"conf")}else closeSheet()};
-    if(g("jCC"))g("jCC").onclick=()=>{read();put("trabajos",j);$("#sheetRoot").innerHTML="";sheetOpen=false;const c=CLI().find(x=>x.nombre.toLowerCase()===j.cliente.toLowerCase())||{nombre:j.cliente,tel:j.tel,dir:j.dir};const n=newDoc("cc",c);n.items=[{d:`${j.servicio||"Servicio"} · ${eq(j.equipo).n}${j.notas?" — "+j.notas:""}`,c:1,p:num(j.valor)||0}];TAB="facturas";try{location.hash="facturas"}catch(e){}edit(n);render()};
+    if(g("jCC"))g("jCC").onclick=()=>{read();put("trabajos",j);$("#sheetRoot").innerHTML="";sheetOpen=false;const c=CLI().find(x=>x.nombre.toLowerCase()===j.cliente.toLowerCase())||{nombre:j.cliente,tel:j.tel,dir:j.dir};const n=newDoc("cc",c);n.items=[{d:`${j.servicio||"Servicio"} · ${eq(j.equipo).n}${j.notas?" — "+j.notas:""}`,c:1,p:num(j.valor)||0}];if(j.contrato){const kk=D.contratos.find(c=>c.id===j.contrato);if(kk&&num(kk.descMO))n.notas="Cliente con contrato de mantenimiento: "+num(kk.descMO)+" % de descuento en mano de obra."}TAB="facturas";try{location.hash="facturas"}catch(e){}edit(n);render()};
     if(g("jDel"))g("jDel").onclick=()=>{const b=g("jDel");if(b.dataset.sure){if(j.contrato&&j.periodo){const k=D.contratos.find(c=>c.id===j.contrato);if(k){k.omit=(k.omit||[]).concat([j.periodo]);put("contratos",k)}}del("trabajos",j.id);toast("Trabajo eliminado");closeSheet()}else{b.dataset.sure="1";b.textContent="¿Seguro? Toca otra vez para eliminar"}};
   });
 }
@@ -1580,83 +1592,148 @@ function ventasCfg(){
 }
 
 /* ================= CONTRATOS DE MANTENIMIENTO ================= */
-const FREQ=[[1,"mensual","cada mes"],[2,"bimestral","cada 2 meses"],[3,"trimestral","cada 3 meses"]];
-const freqN=f=>(FREQ.find(x=>x[0]===+f)||FREQ[0]);
-const DEF_INC="Limpieza de condensadores y evaporadores\nRevisión de presiones, temperaturas y amperajes\nRevisión de quemadores, ignición y sensores de llama (hornos)\nRevisión de empaques, puertas y ventiladores\nApriete de conexiones eléctricas y revisión de tablero\nReporte con fotos y recomendaciones";
+const VIS=[["semanal","Semanal","cada semana"],["quincenal","Quincenal","cada 15 días"],["mensual","Mensual","cada mes"],["bimestral","Bimestral","cada 2 meses"],["trimestral","Trimestral","cada 3 meses"],["llamado","Solo por fallas","cuando haya una falla (por llamado)"]];
+const visN=v=>VIS.find(x=>x[0]===v)||VIS[2];
+const DOW=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+const CMES=[[1,"cada mes"],[2,"cada 2 meses"],[3,"cada 3 meses"]];
+const DEF_INC="Revisión preventiva de los equipos cubiertos según su lista de chequeo\nLimpieza, lubricación y ajuste de partes móviles (correas, cadenas, rodamientos)\nRevisión de presiones, temperaturas y amperajes\nRevisión de quemadores, ignición y sensores de llama (hornos)\nApriete de conexiones eléctricas y revisión de tableros\nReporte con fotos y recomendaciones después de cada visita";
 const mIdx=k=>{const [y,m]=k.split("-").map(Number);return y*12+m-1};
-function kDue(c,p){if(c.estado!=="activo")return false;const st=mk(c.inicio||today());if(p<st)return false;return (mIdx(p)-mIdx(st))%(+c.freq||1)===0&&!(c.omit||[]).includes(p)}
-function kDate(c,p){const [y,m]=p.split("-").map(Number);const dim=new Date(y,m,0).getDate();let d=`${p}-${String(Math.min(+c.dia||10,dim)).padStart(2,"0")}`;if(p===mk(today())&&d<today())d=today();return d}
-function kJob(c,p){return D.trabajos.find(j=>j.id==="kv_"+c.id+"_"+p)}
-function kDoc(c,p){return D.fdocs.find(d=>d.id==="kc_"+c.id+"_"+p)}
-function kNext(c){for(let i=0;i<14;i++){const p=mkAdd(mk(today()),i);if(kDue(c,p)){const j=kJob(c,p);if(!j||j.estado!=="terminado")return {p,j,f:j?j.fecha:kDate(c,p)}}}return null}
+const kVis=c=>c.visitas||({1:"mensual",2:"bimestral",3:"trimestral"}[+c.freq]||"mensual");
+const kCM=c=>+c.cobroMeses||+c.freq||1;
+const kMonths=c=>({mensual:1,bimestral:2,trimestral:3})[kVis(c)]||0;
+// Visitas programadas: devuelve [{key,fecha}] dentro de la ventana
+function kVisits(c,desde,hasta){
+  if(c.estado!=="activo")return [];const v=kVis(c),st=c.inicio||today(),out=[];
+  if(v==="llamado")return out;
+  if(v==="semanal"||v==="quincenal"){
+    const dow=+(c.dow??1);let d=desde<st?st:desde;
+    for(let i=0;i<40&&d<=hasta;i++){const dd=dOf(d);
+      if(dd.getDay()===dow){const ok=v==="semanal"||Math.round((dOf(weekStart(d))-dOf(weekStart(st)))/(7*864e5))%2===0;if(ok)out.push({key:d,fecha:d})}
+      d=addDays(d,1)}
+  }else{
+    const n=kMonths(c);let p=mk(desde);const stm=mk(st);
+    for(let i=0;i<3&&p<=mk(hasta);i++,p=mkAdd(p,1)){if(p<stm||(mIdx(p)-mIdx(stm))%n)continue;
+      const [y,m]=p.split("-").map(Number);const dim=new Date(y,m,0).getDate();let f=`${p}-${String(Math.min(+c.dia||10,dim)).padStart(2,"0")}`;
+      if(p===mk(today())&&f<today())f=today();if(f>=st)out.push({key:p,fecha:f})}
+  }
+  return out.filter(x=>!(c.omit||[]).includes(x.key));
+}
+const kJobId=(c,key)=>"kv_"+c.id+"_"+key;
+function kJob(c,key){return D.trabajos.find(j=>j.id===kJobId(c,key))}
+function kNext(c){const js=D.trabajos.filter(j=>j.contrato===c.id&&j.periodo&&j.estado!=="terminado"&&j.estado!=="cancelado").sort((a,b)=>a.fecha.localeCompare(b.fecha));return js[0]||null}
 let storeReady=false;
 function autoSchedule(){
-  if(!storeReady)return;const cur=mk(today());
-  D.contratos.forEach(c=>[cur,mkAdd(cur,1)].forEach(p=>{
-    if(!kDue(c,p)||kJob(c,p))return;
-    const e=(c.equipos||[])[0]||"otro";
-    put("trabajos",{id:"kv_"+c.id+"_"+p,cliente:c.cliente,tel:c.tel||"",dir:c.dir||"",fecha:kDate(c,p),hora:c.hora||"08:00",dur:"2",equipo:e,servicio:"Mantenimiento preventivo",tecnico:c.tecnico||D.cfg.tecnico||"",valor:"",notas:`🔁 Contrato ${freqN(c.freq)[1]} · ${c.detalle||""}`.trim(),estado:"programado",notif:[],contrato:c.id,periodo:p});
-  }));
+  if(!storeReady)return;const t=today(),hasta=addDays(t,13);
+  D.contratos.forEach(c=>{
+    const win=kMonths(c)?addDays(t,40):hasta;
+    kVisits(c,t,win).forEach(v=>{if(kJob(c,v.key))return;const e=(c.equipos||[])[0]||"otro";
+      put("trabajos",{id:kJobId(c,v.key),cliente:c.cliente,tel:c.tel||"",dir:c.dir||"",fecha:v.fecha,hora:c.hora||"08:00",dur:"2",equipo:e,servicio:"Mantenimiento preventivo",tecnico:c.tecnico||D.cfg.tecnico||"",valor:"",notas:`🔁 Contrato · visita ${visN(kVis(c))[1].toLowerCase()}${c.detalle?" · "+c.detalle:""}`,estado:"programado",notif:[],contrato:c.id,periodo:v.key})});
+  });
 }
-function kCobrosPend(p){p=p||mk(today());return D.contratos.filter(c=>kDue(c,p)&&num(c.valor)>0&&!kDoc(c,p))}
-function genCobros(){
-  const p=mk(today());const list=kCobrosPend(p);if(!list.length){toast("No hay cobros pendientes este mes");return}
-  list.forEach(c=>{const cl=CLI().find(x=>x.nombre.toLowerCase()===(c.cliente||"").toLowerCase())||{nombre:c.cliente,tel:c.tel,dir:c.dir};
-    const d=newDoc("cc",cl);d.id="kc_"+c.id+"_"+p;d.items=[{d:`Contrato de mantenimiento preventivo — ${mkName(p)}${c.detalle?" ("+c.detalle+")":""}`,c:1,p:num(c.valor)}];
-    d.notas=`Plan ${freqN(c.freq)[1]} de mantenimiento preventivo.${num(c.descMO)?" Descuento de "+num(c.descMO)+" % en mano de obra de reparaciones.":""}`;
-    d.num=S.pref.cc+"-"+String(S.next.cc).padStart(4,"0");S.next.cc++;d.editado=new Date().toISOString();put("fdocs",d);upsertClient(cl)});
-  saveS();toast(`${list.length} cuenta(s) de cobro creadas ✔`);render();
+// Cobros: periodos que tocan cobrar
+const kDesde=c=>c.cobroDesde||(()=>{const i=c.inicio||today();return +i.slice(8,10)>15?mkAdd(mk(i),1):mk(i)})();
+function kBillDue(c,p){if(c.estado!=="activo"||!(num(c.valor)>0))return false;const st=kDesde(c);if(p<st)return false;return (mIdx(p)-mIdx(st))%kCM(c)===0&&!(c.omitCobro||[]).includes(p)}
+function kDoc(c,p){return D.fdocs.find(d=>d.id==="kc_"+c.id+"_"+p)}
+function kCobrosPend(){
+  const cur=mk(today()),nxt=mkAdd(cur,1),day=dOf(today()).getDate(),out=[];
+  D.contratos.forEach(c=>{
+    const ps=c.anticipado?[cur].concat(day>=20?[nxt]:[]):[cur];
+    ps.forEach(p=>{if(kBillDue(c,p)&&!kDoc(c,p))out.push({c,p})});
+  });return out;
 }
+const kPerLabel=(c,p)=>kCM(c)>1?`${mkName(p)} a ${mkName(mkAdd(p,kCM(c)-1))}`:mkName(p);
+function cobrosSheet(){
+  const list=kCobrosPend();if(!list.length){toast("No hay cobros pendientes");return}
+  const sel=new Set(list.map((x,i)=>i));
+  sheet("Cuentas de cobro de contratos",`<div class="muted">Marca las que quieres crear. Las de pago anticipado del próximo mes aparecen desde el día 20.</div>
+   <div class="list" id="cbL">${list.map((x,i)=>`<label class="row" style="cursor:pointer"><input type="checkbox" data-i="${i}" checked style="width:auto;transform:scale(1.3)"><span class="tx"><b>${esc(x.c.cliente)}</b><small>${esc(kPerLabel(x.c,x.p))}${x.c.anticipado?" · ⏩ anticipado":" · mes vencido"}</small></span><span class="rt">${money(x.c.valor)}<small><button type="button" class="btn sm" data-skip="${i}" style="margin-top:4px">No cobrar</button></small></span></label>`).join("")}</div>
+   <button class="btn g w" type="button" id="cbGo">🧾 Crear cuentas de cobro</button>`,pan=>{
+    pan.querySelector("#cbL").addEventListener("change",e=>{const i=+e.target.dataset.i;if(e.target.checked)sel.add(i);else sel.delete(i)});
+    pan.querySelector("#cbL").addEventListener("click",e=>{const b=e.target.closest("[data-skip]");if(!b)return;e.preventDefault();const x=list[+b.dataset.skip];x.c.omitCobro=(x.c.omitCobro||[]).concat([x.p]);put("contratos",x.c);sel.delete(+b.dataset.skip);b.closest(".row").style.opacity=".4";b.textContent="Omitido";b.disabled=true;const cb=b.closest(".row").querySelector("input");cb.checked=false;cb.disabled=true});
+    pan.querySelector("#cbGo").onclick=()=>{
+      const go=list.filter((x,i)=>sel.has(i));if(!go.length){toast("No marcaste ninguna");return}
+      go.forEach(({c,p})=>{const cl=CLI().find(x=>x.nombre.toLowerCase()===(c.cliente||"").toLowerCase())||{nombre:c.cliente,tel:c.tel,dir:c.dir};
+        const d=newDoc("cc",cl);d.id="kc_"+c.id+"_"+p;
+        d.items=[{d:`Contrato de mantenimiento — ${kPerLabel(c,p)}${c.anticipado?" (pago anticipado)":""}${c.detalle?" · "+c.detalle:""}`,c:1,p:num(c.valor)}];
+        d.notas=`Visitas: ${visN(kVis(c))[2]}.${num(c.descMO)?" Trabajos adicionales con "+num(c.descMO)+" % de descuento en mano de obra.":""}`;
+        if(c.anticipado)d.pago="Pago anticipado: antes del inicio del periodo";
+        d.num=S.pref.cc+"-"+String(S.next.cc).padStart(4,"0");S.next.cc++;d.editado=new Date().toISOString();put("fdocs",d);upsertClient(cl)});
+      saveS();toast(`${go.length} cuenta(s) de cobro creadas ✔`);closeSheet();
+    };
+  });
+}
+function kVisText(c){const v=kVis(c);if(v==="semanal"||v==="quincenal")return `${visN(v)[2]} (los ${DOW[+(c.dow??1)]})`;return visN(v)[2]}
 function kText(c){
-  const nom=(c.cliente||"").split(" ")[0];const f=freqN(c.freq);
-  return `🔁 *Plan de mantenimiento preventivo* — ${empresa()}\n\nHola ${nom} 👋, te propongo cuidar los equipos de tu negocio con una visita ${f[2]}:\n\n${c.detalle?"🧰 *Equipos:* "+c.detalle+"\n\n":""}✅ *Incluye:*\n${String(c.incluye||DEF_INC).split("\n").filter(Boolean).map(x=>"• "+x).join("\n")}\n\n💵 *Valor:* ${money(c.valor)} ${f[2]}\n${num(c.descMO)?"🔧 *Reparaciones:* "+num(c.descMO)+" % de descuento en mano de obra\n":""}⚡ *Prioridad* en emergencias\n📋 *Reporte con fotos* después de cada visita\n\nUn equipo parado un día cuesta más que el plan de todo el mes. ¿Empezamos este mes? 📅${S.tel?"\n\n📞 "+S.tel:""}`;
+  const nom=(c.cliente||"").split(" ")[0];
+  const eqs=(c.equipos||[]).map(e=>eq(e).i+" "+eq(e).n).join("\n• ");
+  return `🔁 *Plan de mantenimiento* — ${empresa()}\n\nHola ${nom} 👋, te propongo cuidar los equipos y las instalaciones de tu planta con este plan:\n\n${eqs?"🧰 *Cubre:*\n• "+eqs+"\n"+(c.detalle?"("+c.detalle+")\n":"")+"\n":""}📅 *Visitas:* ${kVisText(c)}\n\n✅ *Incluye:*\n${String(c.incluye||DEF_INC).split("\n").filter(Boolean).map(x=>"• "+x).join("\n")}\n\n💵 *Valor:* ${money(c.valor)} ${CMES.find(x=>x[0]===kCM(c))[1]}${c.anticipado?" · pago anticipado":""}\n${num(c.descMO)?"🔧 *Reparaciones, soldadura y trabajos adicionales:* "+num(c.descMO)+" % de descuento en mano de obra\n":""}🚨 *Prioridad* en fallas y emergencias\n📋 *Reporte con fotos* después de cada visita\n\nUn equipo parado un día cuesta más que el plan de todo el mes. ¿Empezamos? 📅${S.tel?"\n\n📞 "+S.tel:""}`;
+}
+function kExtraJob(c,tipo){
+  const now=new Date();const h=String(Math.min(18,now.getHours()+1)).padStart(2,"0")+":00";
+  jobForm(null,tipo==="falla"?{cliente:c.cliente,tel:c.tel,dir:c.dir,fecha:today(),hora:h,equipo:(c.equipos||[])[0]||"otro",servicio:"Atención de falla / emergencia",tecnico:c.tecnico||D.cfg.tecnico||"",notas:"🚨 Falla reportada: ",contrato:c.id,estado:"confirmado"}
+    :{cliente:c.cliente,tel:c.tel,dir:c.dir,fecha:proxDias()[0],equipo:"sold",servicio:"Montaje / soldadura",tecnico:c.tecnico||D.cfg.tecnico||"",notas:"Trabajo adicional del contrato: ",contrato:c.id});
 }
 function vContratos(B){
   const p=mk(today());const act=D.contratos.filter(c=>c.estado==="activo");
-  const fijo=act.reduce((a,c)=>a+num(c.valor)/(+c.freq||1),0);
-  const due=act.filter(c=>kDue(c,p));const hechas=due.filter(c=>{const j=kJob(c,p);return j&&j.estado==="terminado"}).length;
-  const pend=kCobrosPend(p);
+  const fijo=act.reduce((a,c)=>a+num(c.valor)/kCM(c),0);
+  const mesJobs=D.trabajos.filter(j=>j.contrato&&j.periodo&&mk(j.fecha)===p);
+  const fallas=D.trabajos.filter(j=>j.contrato&&!j.periodo&&mk(j.fecha)===p).length;
+  const pend=kCobrosPend();
   B.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2>Contratos</h2><button class="btn p sm" type="button" data-act="kNew">＋ Contrato</button></div>
-   <div class="kpis"><div class="kpi"><small>Ingreso fijo / mes</small><b class="up">${money(fijo)}</b></div><div class="kpi"><small>Contratos activos</small><b>${act.length}</b></div><div class="kpi"><small>Visitas ${esc(mkName(p,true))}</small><b>${hechas} de ${due.length}</b></div><div class="kpi"><small>Cobros ${esc(mkName(p,true))}</small><b>${due.filter(c=>kDoc(c,p)).length} de ${due.filter(c=>num(c.valor)>0).length}</b></div></div>
-   ${pend.length?`<button class="btn g w" type="button" id="kGen">🧾 Crear ${pend.length} cuenta(s) de cobro de ${esc(mkName(p).split(" ")[0].toLowerCase())}</button>`:""}
-   ${D.contratos.length?`<div class="list">${D.contratos.slice().sort((a,b)=>(a.estado==="activo"?0:1)-(b.estado==="activo"?0:1)||(a.cliente||"").localeCompare(b.cliente||"")).map(c=>{const n=kNext(c);const d=kDoc(c,p);const f=freqN(c.freq);
+   <div class="kpis"><div class="kpi"><small>Ingreso fijo / mes</small><b class="up">${money(fijo)}</b></div><div class="kpi"><small>Contratos activos</small><b>${act.length}</b></div><div class="kpi"><small>Visitas ${esc(mkName(p,true))}</small><b>${mesJobs.filter(j=>j.estado==="terminado").length} de ${mesJobs.length}</b></div><div class="kpi"><small>Fallas y extras ${esc(mkName(p,true))}</small><b>${fallas}</b></div></div>
+   ${pend.length?`<button class="btn g w" type="button" id="kGen">🧾 ${pend.length} cuenta(s) de cobro por crear</button>`:""}
+   ${D.contratos.length?`<div class="list">${D.contratos.slice().sort((a,b)=>(a.estado==="activo"?0:1)-(b.estado==="activo"?0:1)||(a.cliente||"").localeCompare(b.cliente||"")).map(c=>{
+     const n=kNext(c);const docs=D.fdocs.filter(d=>d.id.startsWith("kc_"+c.id+"_")).sort((a,b)=>b.id.localeCompare(a.id));const ld=docs[0];
+     const extras=D.trabajos.filter(j=>j.contrato===c.id&&!j.periodo).sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
      return `<div class="job" style="grid-template-columns:1fr"><div class="b"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><b>${esc(c.cliente)}</b><span class="pill ${c.estado==="activo"?"terminado":"cancelado"}">${esc(c.estado)}</span></div>
-      <small>${(c.equipos||[]).map(e=>eq(e).i).join(" ")} ${esc(c.detalle||"")}</small><small>💵 ${money(c.valor)} ${esc(f[2])}</small>
-      ${n?`<small>📅 Próxima visita: ${esc(longD(n.f))}${n.j?" · "+esc(estN(n.j.estado)):""}</small>`:""}
-      ${d?`<small>🧾 ${esc(d.num)} · ${esc(d.estado)}</small>`:""}
-      <div class="acts">${d?`<button class="btn sm" type="button" data-act="kDoc" data-id="${esc(d.id)}">🧾 Ver cobro</button>`:""}<button class="btn sm" type="button" data-act="kEdit" data-id="${esc(c.id)}">✏️ Editar</button></div></div></div>`}).join("")}</div>`
-   :`<div class="empty"><b>Aún no tienes contratos</b>Un contrato de mantenimiento te da ingreso fijo cada mes. La visita se agenda sola y la cuenta de cobro sale con un toque.</div>`}`;
-  if($("#kGen"))$("#kGen").onclick=genCobros;
+      <small>${(c.equipos||[]).map(e=>eq(e).i).join(" ")}${c.detalle?" "+esc(c.detalle):""}</small>
+      <small>💵 ${money(c.valor)} ${esc(CMES.find(x=>x[0]===kCM(c))[1])}${c.anticipado?" · ⏩ mes adelantado":" · mes vencido"}</small>
+      <small>📅 Visitas: ${esc(kVisText(c))}</small>
+      ${n?`<small>➡️ Próxima: ${esc(longD(n.fecha))} · ${esc(estN(n.estado))}</small>`:""}
+      ${ld?`<small>🧾 Último cobro: ${esc(ld.num)} · ${esc(ld.estado)}</small>`:""}
+      ${extras.length?`<small>🔧 ${extras.length} falla(s) / trabajo(s) adicional(es) · último: ${esc(extras[0].servicio||"")} ${esc(fmtD(extras[0].fecha))}</small>`:""}
+      <div class="acts"><button class="btn sm d" type="button" data-act="kFalla" data-id="${esc(c.id)}" style="color:var(--bad)">🚨 Falla</button><button class="btn sm" type="button" data-act="kExtra" data-id="${esc(c.id)}">＋ Trabajo extra</button>${ld?`<button class="btn sm" type="button" data-act="kDoc" data-id="${esc(ld.id)}">🧾 Cobro</button>`:""}<button class="btn sm" type="button" data-act="kEdit" data-id="${esc(c.id)}">✏️</button></div></div></div>`}).join("")}</div>`
+   :`<div class="empty"><b>Aún no tienes contratos</b>Un contrato de mantenimiento te da ingreso fijo. Las visitas se agendan solas, las fallas quedan registradas y la cuenta de cobro sale con un toque.</div>`}`;
+  if($("#kGen"))$("#kGen").onclick=cobrosSheet;
 }
 function contratoForm(c,pre,onSaved){
-  const isNew=!c;c=c?JSON.parse(JSON.stringify(c)):Object.assign({id:uid(),cliente:"",tel:"",dir:"",equipos:[],detalle:"",valor:"",freq:1,dia:10,hora:"08:00",inicio:today(),tecnico:D.cfg.tecnico||"",incluye:DEF_INC,descMO:10,estado:"activo",notas:"",omit:[]},pre||{});
+  const isNew=!c;c=c?JSON.parse(JSON.stringify(c)):Object.assign({id:uid(),cliente:"",tel:"",dir:"",equipos:[],detalle:"",valor:"",visitas:"mensual",dow:1,dia:10,hora:"08:00",cobroMeses:1,anticipado:false,inicio:today(),tecnico:D.cfg.tecnico||"",incluye:DEF_INC,descMO:10,estado:"activo",notas:"",omit:[],omitCobro:[]},pre||{});
+  c.visitas=kVis(c);c.cobroMeses=kCM(c);
   const cl=allClients();
   sheet(isNew?"Nuevo contrato":"Contrato · "+c.cliente,`<div class="fg">
-   <label class="f">Cliente<input id="kC" list="kCl" value="${esc(c.cliente)}" autocomplete="off" placeholder="Panadería, restaurante…"></label><datalist id="kCl">${cl.map(x=>`<option value="${esc(x.n)}"></option>`).join("")}</datalist>
+   <label class="f">Cliente<input id="kC" list="kCl" value="${esc(c.cliente)}" autocomplete="off" placeholder="Planta, panadería, restaurante…"></label><datalist id="kCl">${cl.map(x=>`<option value="${esc(x.n)}"></option>`).join("")}</datalist>
    <div class="fg2"><label class="f">WhatsApp<input id="kT" inputmode="tel" value="${esc(c.tel)}"></label><label class="f">Dirección<input id="kD" value="${esc(c.dir)}"></label></div>
-   <h3>Equipos que cubre</h3><div class="tiles" id="kE">${EQ.filter(e=>e.id!=="otro").map(e=>`<button class="tile ${(c.equipos||[]).includes(e.id)?"on":""}" type="button" data-e="${e.id}"><i>${e.i}</i><span>${esc(e.n)}</span></button>`).join("")}</div>
-   <label class="f">Detalle de equipos<input id="kX" value="${esc(c.detalle)}" placeholder="Ej: 2 hornos rotativos, 1 cuarto frío, 3 neveras"></label>
-   <div class="fg2"><label class="f">Valor por visita<input id="kV" inputmode="numeric" value="${num(c.valor)?esc(Math.round(num(c.valor)).toLocaleString("es-CO")):""}" placeholder="$ 0"></label><label class="f">Frecuencia<select id="kF">${FREQ.map(f=>`<option value="${f[0]}" ${+c.freq===f[0]?"selected":""}>${f[1]}</option>`).join("")}</select></label></div>
-   <div class="fg2"><label class="f">Día de visita (1-28)<input id="kDi" inputmode="numeric" value="${esc(c.dia)}"></label><label class="f">Hora<input id="kH" type="time" value="${esc(c.hora)}"></label></div>
-   <div class="fg2"><label class="f">Inicia<input id="kI" type="date" value="${esc(c.inicio)}"></label><label class="f">Desc. mano de obra %<input id="kM" inputmode="decimal" value="${esc(c.descMO)}"></label></div>
-   <div class="fg2"><label class="f">Técnico<input id="kK" value="${esc(c.tecnico)}"></label><label class="f">Estado<select id="kS">${["activo","pausado","terminado"].map(s=>`<option ${s===c.estado?"selected":""}>${s}</option>`).join("")}</select></label></div>
-   <label class="f">Incluye (una cosa por línea)<textarea id="kN" style="min-height:120px">${esc(c.incluye)}</textarea></label>
+   <h3>Equipos y servicios que cubre</h3><div class="tiles" id="kE">${EQ.filter(e=>e.id!=="otro").map(e=>`<button class="tile ${(c.equipos||[]).includes(e.id)?"on":""}" type="button" data-e="${e.id}"><i>${e.i}</i><span>${esc(e.n)}</span></button>`).join("")}</div>
+   <label class="f">Detalle (cantidades, marcas)<input id="kX" value="${esc(c.detalle)}" placeholder="Ej: 3 mojadoras, 2 cilindros, 4 selladoras, 1 malacate"></label>
+   <h3>Visitas</h3>
+   <div class="fg2"><label class="f">Frecuencia<select id="kVi">${VIS.map(v=>`<option value="${v[0]}" ${v[0]===c.visitas?"selected":""}>${v[1]}</option>`).join("")}</select></label>
+    <label class="f" id="kDowW">Día de la semana<select id="kDow">${DOW.map((d,i)=>i?`<option value="${i}" ${+(c.dow??1)===i?"selected":""}>${d}</option>`:"").join("")}</select></label>
+    <label class="f" id="kDiW">Día del mes (1-28)<input id="kDi" inputmode="numeric" value="${esc(c.dia)}"></label></div>
+   <div class="fg2" id="kHW"><label class="f">Hora<input id="kH" type="time" value="${esc(c.hora)}"></label><label class="f">Técnico<input id="kK" value="${esc(c.tecnico)}"></label></div>
+   <h3>Cobro</h3>
+   <div class="fg2"><label class="f">Valor del contrato<input id="kV" inputmode="numeric" value="${num(c.valor)?esc(Math.round(num(c.valor)).toLocaleString("es-CO")):""}" placeholder="$ 0"></label><label class="f">Se cobra<select id="kCm">${CMES.map(x=>`<option value="${x[0]}" ${x[0]===c.cobroMeses?"selected":""}>${x[1]}</option>`).join("")}</select></label></div>
+   <div class="fg2"><label class="f">Forma de pago<select id="kA"><option value="0" ${!c.anticipado?"selected":""}>Mes vencido</option><option value="1" ${c.anticipado?"selected":""}>Mes adelantado</option></select></label><label class="f">Desc. en trabajos extra %<input id="kM" inputmode="decimal" value="${esc(c.descMO)}"></label></div>
+   <div class="fg2"><label class="f">Inicia<input id="kI" type="date" value="${esc(c.inicio)}"></label><label class="f">Cobrar desde (mes)<input id="kCd" type="month" value="${esc(kDesde(c))}"></label></div>
+   <div class="fg2"><label class="f">Estado<select id="kS">${["activo","pausado","terminado"].map(s=>`<option ${s===c.estado?"selected":""}>${s}</option>`).join("")}</select></label><div></div></div>
+   <label class="f">Incluye (una cosa por línea)<textarea id="kN" style="min-height:130px">${esc(c.incluye)}</textarea></label>
    <button class="btn p w" type="button" id="kSv">Guardar contrato</button>
    <a class="btn wa w" id="kWa" target="_blank" rel="noopener" href="#">📲 Enviar propuesta por WhatsApp</a>
    ${!isNew?`<button class="btn d w" type="button" id="kDel">Eliminar contrato</button>`:""}</div>`,pan=>{
     const g=id=>pan.querySelector("#"+id);
-    const read=()=>Object.assign(c,{cliente:g("kC").value.trim(),tel:g("kT").value.trim(),dir:g("kD").value.trim(),detalle:g("kX").value.trim(),valor:num(g("kV").value)||"",freq:+g("kF").value,dia:Math.min(28,Math.max(1,parseInt(g("kDi").value)||10)),hora:g("kH").value||"08:00",inicio:g("kI").value||today(),descMO:num(g("kM").value),tecnico:g("kK").value.trim(),estado:g("kS").value,incluye:g("kN").value});
+    const read=()=>Object.assign(c,{cliente:g("kC").value.trim(),tel:g("kT").value.trim(),dir:g("kD").value.trim(),detalle:g("kX").value.trim(),valor:num(g("kV").value)||"",visitas:g("kVi").value,dow:+g("kDow").value,dia:Math.min(28,Math.max(1,parseInt(g("kDi").value)||10)),hora:g("kH").value||"08:00",cobroMeses:+g("kCm").value,anticipado:g("kA").value==="1",inicio:g("kI").value||today(),cobroDesde:g("kCd").value||"",descMO:num(g("kM").value),tecnico:g("kK").value.trim(),estado:g("kS").value,incluye:g("kN").value});
+    const vis=()=>{const v=g("kVi").value;g("kDowW").hidden=!(v==="semanal"||v==="quincenal");g("kDiW").hidden=!["mensual","bimestral","trimestral"].includes(v);g("kHW").hidden=v==="llamado"};vis();
     const pa=()=>{read();const t=phone(c.tel);g("kWa").href=(t?"https://wa.me/"+t:"https://wa.me/")+"?text="+encodeURIComponent(kText(c))};pa();
-    pan.addEventListener("input",pa);pan.addEventListener("change",pa);
+    pan.addEventListener("input",pa);pan.addEventListener("change",()=>{vis();pa()});
     g("kC").addEventListener("change",()=>{const x=cl.find(y=>y.n.toLowerCase()===g("kC").value.trim().toLowerCase());if(x){if(!g("kT").value)g("kT").value=x.tel||"";if(!g("kD").value)g("kD").value=x.dir||"";pa()}});
-    g("kE").onclick=e=>{const b=e.target.closest("[data-e]");if(!b)return;const id=b.dataset.e;c.equipos=(c.equipos||[]).includes(id)?c.equipos.filter(x=>x!==id):(c.equipos||[]).concat([id]);b.classList.toggle("on")};
-    g("kSv").onclick=()=>{read();if(!c.cliente){toast("Escribe el cliente");return}if(!c.equipos.length){toast("Escoge al menos un equipo");return}
-      put("contratos",c);upsertClient({nombre:c.cliente,tel:c.tel,dir:c.dir});
-      // actualiza visitas futuras ya creadas que no se han hecho
-      D.trabajos.filter(j=>j.contrato===c.id&&j.estado==="programado"&&j.fecha>=today()).forEach(j=>{if(c.estado!=="activo"){del("trabajos",j.id);return}Object.assign(j,{cliente:c.cliente,tel:c.tel,dir:c.dir,hora:c.hora,fecha:kDate(c,j.periodo),equipo:c.equipos[0]});put("trabajos",j)});
-      onSaved&&onSaved(c);autoSchedule();toast("Contrato guardado ✔ La visita quedó en la agenda");closeSheet()};
-    g("kWa").addEventListener("click",()=>{read();if(!c.cliente)return;put("contratos",Object.assign({},c,{estado:isNew&&!D.contratos.some(x=>x.id===c.id)?"pausado":c.estado}));toast("Si acepta, cámbialo a “activo” y guarda")});
-    if(g("kDel"))twoTap(g("kDel"),"¿Eliminar contrato y sus visitas pendientes? Toca otra vez",()=>{D.trabajos.filter(j=>j.contrato===c.id&&j.estado!=="terminado").forEach(j=>del("trabajos",j.id));del("contratos",c.id);toast("Contrato eliminado");closeSheet()});
+    g("kE").onclick=e=>{const b=e.target.closest("[data-e]");if(!b)return;const id=b.dataset.e;c.equipos=(c.equipos||[]).includes(id)?c.equipos.filter(x=>x!==id):(c.equipos||[]).concat([id]);b.classList.toggle("on");pa()};
+    g("kSv").onclick=()=>{read();if(!c.cliente){toast("Escribe el cliente");return}if(!c.equipos.length){toast("Escoge al menos un equipo o servicio");return}
+      delete c.freq;put("contratos",c);upsertClient({nombre:c.cliente,tel:c.tel,dir:c.dir});
+      // visitas futuras sin hacer: se borran y se vuelven a crear con la nueva programación
+      const valid=new Set(kVisits(c,today(),addDays(today(),45)).map(v=>kJobId(c,v.key)));
+      D.trabajos.filter(j=>j.contrato===c.id&&j.periodo&&j.estado==="programado"&&j.fecha>=today()).forEach(j=>{if(!valid.has(j.id)||c.estado!=="activo")del("trabajos",j.id);else{Object.assign(j,{cliente:c.cliente,tel:c.tel,dir:c.dir,hora:c.hora,equipo:c.equipos[0]});const v=kVisits(c,today(),addDays(today(),45)).find(x=>kJobId(c,x.key)===j.id);if(v)j.fecha=v.fecha;put("trabajos",j)}});
+      onSaved&&onSaved(c);autoSchedule();toast(c.visitas==="llamado"?"Contrato guardado ✔ Usa 🚨 Falla cuando te llamen":"Contrato guardado ✔ Las visitas quedaron en la agenda");closeSheet()};
+    g("kWa").addEventListener("click",()=>{read();if(!c.cliente)return;if(isNew&&!D.contratos.some(x=>x.id===c.id)){put("contratos",Object.assign({},c,{estado:"pausado"}));toast("Guardado como “pausado”. Si acepta, ponlo “activo”")}});
+    if(g("kDel"))twoTap(g("kDel"),"¿Eliminar contrato y sus visitas pendientes? Toca otra vez",()=>{D.trabajos.filter(j=>j.contrato===c.id&&j.periodo&&j.estado!=="terminado").forEach(j=>del("trabajos",j.id));del("contratos",c.id);toast("Contrato eliminado");closeSheet()});
   });
 }
 
@@ -1666,20 +1743,27 @@ const CHK={
   aire:["Limpieza de filtros","Lavado de evaporador","Lavado de condensadora","Drenaje","Presiones de trabajo","Amperaje del compresor","Conexiones eléctricas","Control y sensores"],
   horno:["Quemadores y llama","Ignición y sensor de llama / termocupla","Control de temperatura","Ventilador y motor","Giro del carro / rodamientos","Empaques de puerta","Ductos y extracción","Prueba de fugas de gas"],
   gavet:["Resistencias","Humidificación","Control de temperatura y humedad","Empaques y puertas","Ventilador"],
-  sold:["Inspección de soldaduras","Corrosión y pintura","Anclajes y tornillería"],
+  maq:["Correas y poleas","Cadenas y piñones","Rodamientos y chumaceras","Lubricación / engrase","Reductor (nivel de aceite)","Motor: amperaje y temperatura","Rodillos, ganchos, cuchillas o tazón","Guardas y paro de emergencia","Contactores y conexiones","Ruidos y vibraciones"],
+  sell:["Resistencias de sellado","Mordazas / teflón","Control de temperatura","Cuchilla de corte","Neumática (presión y fugas)","Sensores y fotocelda","Motor y transmisión","Paro de emergencia"],
+  malac:["Cable de acero (desgaste, hilos rotos)","Gancho y seguro","Freno","Finales de carrera","Botonera y paro de emergencia","Motor y reductor","Estructura, rieles y anclajes","Lubricación"],
+  comp:["Nivel de aceite","Purga de condensados","Filtro de aire","Correas","Presostato","Válvula de seguridad","Fugas en la red","Motor: amperaje"],
+  extr:["Motor y rodamientos","Correas","Limpieza de campana y filtros","Ductos","Anclajes y vibración"],
+  loc:["Cubierta y goteras","Canales y bajantes","Pisos y sifones","Puertas, rejas y cerraduras","Iluminación","Tomas e interruptores","Pintura y humedades","Redes hidráulicas (fugas)"],
+  sold:["Inspección de soldaduras","Corrosión y pintura","Anclajes y tornillería","Cerramientos (mallas, rejas, láminas)"],
   elec:["Apriete de borneras","Protecciones / breakers","Contactores y relés","Puesta a tierra","Consumo (amperaje)"],
   otro:["Inspección general","Limpieza","Prueba de funcionamiento"]};
-const grp=id=>({frio_com:"frio",frio_ind:"frio",aire:"aire",h_rot:"horno",h_atm:"horno",totem:"horno",pandeb:"horno",gavet:"gavet",sold:"sold",elec:"elec"})[id]||"otro";
-const GRPN={frio:"🧊 Refrigeración",aire:"❄️ Aire acondicionado",horno:"🔥 Hornos",gavet:"🗄️ Gaveteros / fermentación",sold:"⚒️ Estructuras",elec:"⚡ Eléctrico",otro:"🛠️ General"};
+const grp=id=>({frio_com:"frio",frio_ind:"frio",aire:"aire",h_rot:"horno",h_atm:"horno",totem:"horno",pandeb:"horno",gavet:"gavet",mojadora:"maq",cilindro:"maq",batidora:"maq",banda:"maq",selladora:"sell",malacate:"malac",compresor:"comp",extraccion:"extr",locativo:"loc",sold:"sold",elec:"elec"})[id]||"otro";
+const GRPN={frio:"🧊 Refrigeración",aire:"❄️ Aire acondicionado",horno:"🔥 Hornos",gavet:"🗄️ Gaveteros / fermentación",maq:"⚙️ Maquinaria de producción",sell:"📦 Selladoras / empaque",malac:"🏗️ Malacate / elevación",comp:"💨 Aire comprimido",extr:"🌬️ Extracción",loc:"🏢 Locativo",sold:"⚒️ Estructuras y cerramientos",elec:"⚡ Eléctrico",otro:"🛠️ General"};
 function reportSheet(j){
   if(!j)return;
   const k=j.contrato?D.contratos.find(c=>c.id===j.contrato):null;
-  const groups=[...new Set([j.equipo,...(k&&k.equipos||[])].map(grp))];
+  let groups=[...new Set([j.equipo,...(j.periodo&&k?k.equipos||[]:[])].map(grp))];
   const R=j.reporte?JSON.parse(JSON.stringify(j.reporte)):{items:{},med:"",obs:"",rec:""};
   groups.forEach(gk=>CHK[gk].forEach(it=>{const key=gk+"|"+it;if(!R.items[key])R.items[key]="na"}));
   let photos=[];
   const ST={ok:["✔ OK","var(--ok)"],at:["⚠️ Atención","var(--warn)"],na:["— N/A","var(--mut)"]};
   sheet("Reporte · "+(j.cliente||""),`<div class="muted">Toca cada punto: ✔ OK → ⚠️ Atención → N/A.</div>
+   <div class="chips" id="rpGr" style="flex-wrap:wrap"></div>
    <div id="rpL" class="fg"></div>
    <label class="f">Mediciones<textarea id="rpM" placeholder="Ej: Succión 65 psi · Descarga 260 psi · 7,2 A · Cámara −18 °C">${esc(R.med)}</textarea></label>
    <label class="f">Observaciones<textarea id="rpO" placeholder="Lo que encontraste">${esc(R.obs)}</textarea></label>
@@ -1690,7 +1774,10 @@ function reportSheet(j){
    <div id="rpOut" class="fg"></div>`,pan=>{
     const L=pan.querySelector("#rpL");
     const drawL=()=>{L.innerHTML=groups.map(gk=>`<div class="card" style="padding:10px"><b>${esc(GRPN[gk])}</b><div class="list" style="margin-top:6px">${CHK[gk].map(it=>{const key=gk+"|"+it;const s=R.items[key];return `<button type="button" class="row" data-k="${esc(key)}" style="padding:9px 10px"><span class="tx"><b style="white-space:normal;font-weight:600">${esc(it)}</b></span><span class="rt" style="color:${ST[s][1]}">${ST[s][0]}</span></button>`}).join("")}</div></div>`).join("")};
-    drawL();
+    const GR=pan.querySelector("#rpGr");
+    const drawG=()=>{GR.innerHTML=Object.keys(CHK).map(gk=>`<button class="chip ${groups.includes(gk)?"on":""}" type="button" data-g="${gk}">${esc(GRPN[gk])}</button>`).join("")};
+    GR.onclick=e=>{const b=e.target.closest("[data-g]");if(!b)return;const gk=b.dataset.g;groups=groups.includes(gk)?groups.filter(x=>x!==gk):groups.concat([gk]);groups.forEach(g2=>CHK[g2].forEach(it=>{if(!R.items[g2+"|"+it])R.items[g2+"|"+it]="na"}));drawG();drawL()};
+    drawG();drawL();
     L.onclick=e=>{const b=e.target.closest("[data-k]");if(!b)return;const k2=b.dataset.k;R.items[k2]=R.items[k2]==="na"?"ok":R.items[k2]==="ok"?"at":"na";drawL()};
     const fi=document.createElement("input");fi.type="file";fi.accept="image/*";fi.multiple=true;
     const drawT=()=>{const t=pan.querySelector("#rpT");t.innerHTML="";photos.forEach((f,i)=>{const w=document.createElement("div");w.className="thumb";const im=document.createElement("img");im.alt="Foto";im.src=URL.createObjectURL(f);const x=document.createElement("button");x.type="button";x.textContent="×";x.onclick=()=>{photos.splice(i,1);drawT()};w.append(im,x);t.append(w)})};
@@ -1719,7 +1806,7 @@ function reportSheet(j){
   });
 }
 function drawReport(ctx,v,imgs){
-  const {j,k,groups,R}=v;
+  const {j,k,R}=v;const groups=v.groups.filter(gk=>CHK[gk].some(it=>R.items[gk+"|"+it]&&R.items[gk+"|"+it]!=="na"));
   const W=1240,M=70,C=S.color||"#1f6fd1",DARK="#0f2233",MUT="#5b6b7a",F='"Helvetica Neue", Helvetica, Arial, sans-serif';
   const font=(s,b)=>ctx.font=(b?"700 ":"400 ")+s+"px "+F;const breaks=[];let y=60;
   ctx.fillStyle="#fff";ctx.fillRect(0,0,W,ctx.canvas.height);ctx.fillStyle=C;ctx.fillRect(0,0,W,14);
@@ -1727,7 +1814,7 @@ function drawReport(ctx,v,imgs){
   ctx.textAlign="left";ctx.fillStyle=DARK;font(24,1);ctx.fillText(S.empresa,M,ly+20,620);ly+=30;ctx.fillStyle=MUT;font(19);
   [[S.nit&&"NIT "+S.nit,S.tel&&"Tel. "+S.tel].filter(Boolean).join(" · "),S.ciudad].filter(Boolean).forEach(l=>{ctx.fillText(l,M,ly+20,620);ly+=27});
   ctx.textAlign="right";ctx.fillStyle=C;font(38,1);ctx.fillText("REPORTE DE SERVICIO",W-M,y+44,520);
-  let ry=y+86;ctx.fillStyle=MUT;font(21);[`Fecha: ${fmtD(R.f||today())}`,j.tecnico&&`Técnico: ${j.tecnico}`,k&&`Contrato ${freqN(k.freq)[1]}`].filter(Boolean).forEach(l=>{ctx.fillText(l,W-M,ry,520);ry+=30});
+  let ry=y+86;ctx.fillStyle=MUT;font(21);[`Fecha: ${fmtD(R.f||today())}`,j.tecnico&&`Técnico: ${j.tecnico}`,k&&`Contrato · visitas ${visN(kVis(k))[1].toLowerCase()}`].filter(Boolean).forEach(l=>{ctx.fillText(l,W-M,ry,520);ry+=30});
   y=Math.max(ly,ry)+14;ctx.fillStyle=C;ctx.fillRect(M,y,W-2*M,4);y+=28;
   const bw=(W-2*M-24)/2;font(21);
   const cl=[j.cliente,j.dir,j.tel&&"Tel.: "+j.tel].filter(Boolean).flatMap(l=>wrap(ctx,l,bw-40));
